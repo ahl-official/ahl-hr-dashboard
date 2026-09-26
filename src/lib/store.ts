@@ -260,6 +260,37 @@ export async function addMeetingRecord(meeting: any): Promise<MeetingRecord> {
   return parseMeetings([[], row])[0];
 }
 
+export async function updateMeetingStatus(meetingId: string, status: "Open" | "Completed" | "Cancelled", performedBy = "HR Command User"): Promise<MeetingRecord | null> {
+  const snapshot = await loadSnapshot(true);
+  const targetMeeting = snapshot.meetings.find((m) => m.meetingId === meetingId);
+  if (!targetMeeting) return null;
+
+  const rawRows = await getValues("HR_Meetings!A:Q");
+  const rowIndex = rawRows.slice(1).findIndex((row) => clean(row[0]) === meetingId);
+  if (rowIndex < 0) return null;
+  const actualRow = rowIndex + 2;
+  const now = nowSerial();
+
+  // Column O is recordStatus, Column Q is updatedAt
+  await updateValues(`HR_Meetings!O${actualRow}:Q${actualRow}`, [[status, rawRows[actualRow - 1][15] || now, now]]);
+
+  const employee = snapshot.employees.find((e) => e.employeeKey === targetMeeting.employeeKey);
+  if (employee) {
+    await appendAudit({
+      employee,
+      actionType: "UPDATE_MEETING_STATUS",
+      recordType: "Meeting",
+      recordId: meetingId,
+      details: `Status changed to ${status}`,
+      performedBy,
+    });
+  }
+
+  invalidateCache();
+  const refreshed = await loadSnapshot(true);
+  return refreshed.meetings.find((m) => m.meetingId === meetingId) || null;
+}
+
 export async function getAllDocuments() { return (await loadSnapshot()).documents; }
 export async function addDocumentRecord(document: any): Promise<DocumentRecord> {
   const snapshot = await loadSnapshot(true), employee = snapshot.employees.find((item) => item.employeeKey === clean(document.employeeKey));

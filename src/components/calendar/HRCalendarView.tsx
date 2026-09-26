@@ -16,9 +16,16 @@ import {
   ListFilter,
   Eye,
   ExternalLink,
+  MessageCircle,
 } from "lucide-react";
 import { EmployeeSummary, MeetingRecord, BirthdayEvent, ReviewEvent } from "@/types";
 import { formatDisplayDate, initials, parseIsoDate } from "@/lib/date-utils";
+import {
+  getActionFollowUpWhatsAppUrl,
+  getMilestoneWhatsAppUrl,
+  getBirthdayWhatsAppUrl,
+  getCheckInWhatsAppUrl,
+} from "@/lib/whatsapp";
 
 export type CalendarEventType = "review" | "meeting" | "followup" | "warning" | "birthday";
 
@@ -129,21 +136,31 @@ export function HRCalendarView({
         rawMeeting: m,
       });
 
-      // 2. Follow-ups due
+      // 2. Action Notes & Follow-ups due
       if (m.nextFollowUpDate && m.recordStatus !== "Cancelled") {
+        const todayStr = new Date().toISOString().slice(0, 10);
+        const isOverdue = m.nextFollowUpDate < todayStr && m.recordStatus === "Open";
+
         list.push({
           id: `fup-${m.meetingId}`,
-          type: "followup",
-          title: `Follow-Up: ${m.employeeName}`,
-          subtitle: `Follow-up on ${m.meetingType}`,
+          type: isOverdue ? "warning" : "followup",
+          title: `${isOverdue ? "⚠️ Overdue: " : "Action: "}${m.employeeName}`,
+          subtitle: m.actionTaken || m.discussionNotes || `Follow-up on ${m.meetingType}`,
           dateStr: m.nextFollowUpDate,
-          badgeLabel: "Follow-Up",
-          colorClass: {
-            chip: "bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100",
-            dot: "bg-amber-500",
-            border: "border-l-4 border-l-amber-500",
-            badge: "bg-amber-100 text-amber-800",
-          },
+          badgeLabel: isOverdue ? "⚠️ Overdue Action" : "Action Due",
+          colorClass: isOverdue
+            ? {
+                chip: "bg-rose-100 text-rose-950 border-rose-300 hover:bg-rose-200 font-bold",
+                dot: "bg-rose-600",
+                border: "border-l-4 border-l-rose-600",
+                badge: "bg-rose-200 text-rose-900 font-extrabold",
+              }
+            : {
+                chip: "bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100",
+                dot: "bg-amber-500",
+                border: "border-l-4 border-l-amber-500",
+                badge: "bg-amber-100 text-amber-800",
+              },
           rawEmployee: emp,
           rawMeeting: m,
         });
@@ -692,7 +709,48 @@ export function HRCalendarView({
             </div>
 
             {/* Modal Actions */}
-            <div className="flex items-center justify-end gap-2.5">
+            <div className="flex items-center justify-end gap-2">
+              {inspectedEvent.rawEmployee && (
+                <button
+                  onClick={() => {
+                    const emp = inspectedEvent.rawEmployee!;
+                    let url = "";
+                    if (inspectedEvent.type === "birthday") {
+                      url = getBirthdayWhatsAppUrl(emp.mobile, emp.fullName);
+                    } else if (inspectedEvent.type === "review") {
+                      url = getMilestoneWhatsAppUrl(
+                        emp.mobile,
+                        emp.fullName,
+                        inspectedEvent.badgeLabel,
+                        formatDisplayDate(inspectedEvent.dateStr)
+                      );
+                    } else if (inspectedEvent.rawMeeting) {
+                      const todayStr = new Date().toISOString().slice(0, 10);
+                      const isOverdue =
+                        inspectedEvent.rawMeeting.nextFollowUpDate &&
+                        inspectedEvent.rawMeeting.nextFollowUpDate < todayStr;
+                      url = getActionFollowUpWhatsAppUrl(
+                        emp.mobile,
+                        emp.fullName,
+                        inspectedEvent.rawMeeting.actionTaken ||
+                          inspectedEvent.rawMeeting.discussionNotes ||
+                          "HR Follow-up",
+                        formatDisplayDate(inspectedEvent.dateStr),
+                        Boolean(isOverdue)
+                      );
+                    } else {
+                      url = getCheckInWhatsAppUrl(emp.mobile, emp.fullName);
+                    }
+                    window.open(url, "_blank");
+                  }}
+                  className="px-3 py-2 rounded-xl text-xs font-bold bg-emerald-50 hover:bg-emerald-600 text-emerald-700 hover:text-white border border-emerald-300 transition flex items-center gap-1.5 shadow-sm"
+                  title="Send WhatsApp Follow-up / Greeting"
+                >
+                  <MessageCircle className="w-3.5 h-3.5" />
+                  <span>WhatsApp</span>
+                </button>
+              )}
+
               {inspectedEvent.rawEmployee && (
                 <button
                   onClick={() => {
@@ -700,7 +758,7 @@ export function HRCalendarView({
                     setInspectedEvent(null);
                     if (emp) onSelectEmployee(emp);
                   }}
-                  className="px-4 py-2 rounded-xl text-xs font-bold border border-slate-200 hover:bg-slate-100 text-slate-700 transition"
+                  className="px-3.5 py-2 rounded-xl text-xs font-bold border border-slate-200 hover:bg-slate-100 text-slate-700 transition"
                 >
                   View Profile
                 </button>
@@ -716,7 +774,7 @@ export function HRCalendarView({
                     scheduledDate: dateStr,
                   });
                 }}
-                className="px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition shadow-sm"
+                className="px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition shadow-sm"
               >
                 Schedule Follow-Up
               </button>

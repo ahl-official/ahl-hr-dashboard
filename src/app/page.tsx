@@ -17,6 +17,7 @@ import { StatusModal } from "@/components/modals/StatusModal";
 import { AllBirthdaysModal } from "@/components/modals/AllBirthdaysModal";
 import { AddEmployeeWizard } from "@/components/onboarding/AddEmployeeWizard";
 import { HRCalendarView } from "@/components/calendar/HRCalendarView";
+import { ActionAlertsBanner } from "@/components/dashboard/ActionAlertsBanner";
 import { useToast } from "@/components/ui/Toast";
 import {
   EmployeeSummary,
@@ -213,6 +214,30 @@ export default function DashboardPage() {
     }
   };
 
+  const handleUpdateMeetingStatus = async (
+    meetingId: string,
+    status: "Open" | "Completed" | "Cancelled"
+  ): Promise<boolean> => {
+    try {
+      const res = await fetch("/api/meetings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ meetingId, recordStatus: status }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || "Failed to update meeting status");
+
+      setMeetings((prev) =>
+        prev.map((m) => (m.meetingId === meetingId ? data.data : m))
+      );
+      showToast(`Action item marked as ${status}`, "success");
+      return true;
+    } catch (err: any) {
+      showToast(err.message || "Failed to update action status", "error");
+      return false;
+    }
+  };
+
   const handleSaveDocument = async (payload: any): Promise<boolean> => {
     try {
       const res = await fetch("/api/documents", {
@@ -331,6 +356,14 @@ export default function DashboardPage() {
               totalCount={employees.length}
             />
 
+            {/* Urgent HR Action Reminders & Overdue Alerts */}
+            <ActionAlertsBanner
+              meetings={meetings}
+              employees={employees}
+              onUpdateMeetingStatus={handleUpdateMeetingStatus}
+              onSelectEmployee={(emp) => setSelectedEmployee(emp)}
+            />
+
             {/* 1. Overview KPIs Section */}
             <section id="overview">
               <OverviewKPIs
@@ -394,6 +427,7 @@ export default function DashboardPage() {
             {/* 6. Employee Directory */}
             <EmployeeDirectory
               employees={filteredEmployees}
+              meetings={meetings}
               onSelectEmployee={(emp) => setSelectedEmployee(emp)}
             />
           </>
@@ -404,10 +438,15 @@ export default function DashboardPage() {
       <EmployeeProfileDrawer
         employee={selectedEmployee}
         documents={documents}
+        meetings={meetings}
         onClose={() => setSelectedEmployee(null)}
-        onOpenMeeting={(empKey) => {
+        onOpenMeeting={(empKey, prefill) => {
           setSelectedEmployee(null);
-          setMeetingPrefill({ employeeKey: empKey, meetingType: "General" });
+          setMeetingPrefill({
+            employeeKey: empKey,
+            meetingType: prefill?.meetingType || "General",
+            ...prefill,
+          });
           setMeetingModalOpen(true);
         }}
         onOpenDocument={(empKey) => {

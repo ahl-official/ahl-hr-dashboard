@@ -16,16 +16,20 @@ import {
   CheckCircle2,
   Clock,
   ExternalLink,
+  AlertTriangle,
+  MessageCircle,
 } from "lucide-react";
-import { EmployeeSummary, DocumentRecord } from "@/types";
-import { initials, formatExactTenure } from "@/lib/date-utils";
+import { EmployeeSummary, DocumentRecord, MeetingRecord } from "@/types";
+import { initials, formatExactTenure, formatDisplayDate } from "@/lib/date-utils";
 import { SENSITIVE_FIELDS_HR_MASK } from "@/lib/constants";
+import { getCheckInWhatsAppUrl } from "@/lib/whatsapp";
 
 interface EmployeeProfileDrawerProps {
   employee: EmployeeSummary | null;
   documents: DocumentRecord[];
+  meetings?: MeetingRecord[];
   onClose: () => void;
-  onOpenMeeting: (employeeKey: string) => void;
+  onOpenMeeting: (employeeKey: string, prefill?: any) => void;
   onOpenDocument: (employeeKey: string) => void;
   onOpenStatus: (employeeKey: string) => void;
 }
@@ -33,6 +37,7 @@ interface EmployeeProfileDrawerProps {
 export function EmployeeProfileDrawer({
   employee,
   documents,
+  meetings = [],
   onClose,
   onOpenMeeting,
   onOpenDocument,
@@ -51,6 +56,18 @@ export function EmployeeProfileDrawer({
   }, [employee, onClose]);
 
   if (!employee) return null;
+
+  // Filter meetings for this employee
+  const employeeMeetings = meetings.filter((m) => m.employeeKey === employee.employeeKey);
+  const redFlagMeetings = employeeMeetings.filter(
+    (m) => m.warningGiven === "Yes" || m.meetingType === "Warning"
+  );
+  const activeRedFlag = redFlagMeetings.find((m) => m.recordStatus === "Open") || redFlagMeetings[0];
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const pendingActions = employeeMeetings.filter(
+    (m) => m.nextFollowUpDate && m.recordStatus === "Open"
+  );
 
   // Categorize master fields into the 6 canonical groups
   const masterFields = employee.masterFields || [];
@@ -93,6 +110,11 @@ export function EmployeeProfileDrawer({
   });
 
   const isLeft = employee.employmentStatus === "Left";
+
+  const handleWhatsApp = () => {
+    const url = getCheckInWhatsAppUrl(employee.mobile, employee.fullName);
+    window.open(url, "_blank");
+  };
 
   return (
     <div className="fixed inset-0 z-50 overflow-hidden flex justify-end" role="dialog" aria-modal="true">
@@ -142,7 +164,7 @@ export function EmployeeProfileDrawer({
         </div>
 
         {/* Scrollable Body */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
           {/* Hero Profile Header */}
           <div className="p-5 rounded-2xl bg-gradient-to-br from-navy-800 to-navy-900 text-white shadow-lg">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -179,30 +201,140 @@ export function EmployeeProfileDrawer({
                 </div>
               </div>
             </div>
+
+            {/* Direct WhatsApp Callout in Hero */}
+            <div className="mt-4 pt-3 border-t border-slate-700/60 flex items-center justify-between">
+              <span className="text-xs text-slate-300 font-mono">
+                📱 {employee.mobile || "No phone listed"}
+              </span>
+              <button
+                onClick={handleWhatsApp}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition shadow-sm"
+              >
+                <MessageCircle className="w-3.5 h-3.5" />
+                <span>Chat on WhatsApp</span>
+              </button>
+            </div>
           </div>
 
-          {/* Quick Action Buttons */}
-          <div className="grid grid-cols-3 gap-2.5">
+          {/* 🚩 PROMINENT RED FLAG BANNER (If Active Warning Exists) */}
+          {activeRedFlag && (
+            <div className="p-4 rounded-2xl bg-rose-50 border-2 border-rose-300 text-rose-950 shadow-sm animate-in fade-in">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <div className="p-1 rounded-lg bg-rose-600 text-white">
+                    <AlertTriangle className="w-4 h-4" />
+                  </div>
+                  <span className="text-xs font-extrabold uppercase tracking-wider text-rose-900">
+                    Active HR Red Flag / Behavioral Concern
+                  </span>
+                </div>
+                <span className="text-[11px] font-bold text-rose-700 bg-rose-100 px-2.5 py-0.5 rounded-full border border-rose-200">
+                  {formatDisplayDate(activeRedFlag.meetingDate || activeRedFlag.scheduledDate)}
+                </span>
+              </div>
+
+              <div className="p-3 rounded-xl bg-white/90 border border-rose-200 text-xs text-rose-900 leading-relaxed font-medium">
+                <strong className="text-rose-950 block mb-0.5">HR Concern Note:</strong>
+                "{activeRedFlag.discussionNotes}"
+              </div>
+
+              {activeRedFlag.actionTaken && (
+                <div className="mt-2.5 text-xs text-rose-800 font-semibold flex items-center gap-1.5">
+                  <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-rose-200 text-rose-900">
+                    Required Action
+                  </span>
+                  <span>{activeRedFlag.actionTaken}</span>
+                </div>
+              )}
+
+              {activeRedFlag.recordedBy && (
+                <span className="block mt-2 text-[10px] text-rose-600 font-medium">
+                  Recorded by: {activeRedFlag.recordedBy}
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* ⏰ PENDING ACTION NOTES CALLOUT (If Present) */}
+          {pendingActions.length > 0 && (
+            <div className="p-4 rounded-2xl bg-amber-50 border border-amber-300 text-amber-950 shadow-sm">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-amber-600" />
+                  <span className="text-xs font-extrabold uppercase tracking-wider text-amber-900">
+                    Pending Follow-Up Action ({pendingActions.length})
+                  </span>
+                </div>
+              </div>
+              <div className="space-y-2">
+                {pendingActions.map((pa) => {
+                  const isOverdue = pa.nextFollowUpDate < todayStr;
+                  return (
+                    <div
+                      key={pa.meetingId}
+                      className="p-2.5 rounded-xl bg-white border border-amber-200 text-xs"
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-bold text-navy-DEFAULT">{pa.meetingType}</span>
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                            isOverdue
+                              ? "bg-rose-100 text-rose-800"
+                              : "bg-amber-100 text-amber-800"
+                          }`}
+                        >
+                          {isOverdue ? "⚠️ Overdue: " : "Due: "}
+                          {formatDisplayDate(pa.nextFollowUpDate)}
+                        </span>
+                      </div>
+                      <p className="text-slate-700">{pa.actionTaken || pa.discussionNotes}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Quick Action Buttons (4 Action Grid) */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <button
-              onClick={() => onOpenMeeting(employee.employeeKey)}
-              className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-indigo-50 hover:bg-indigo-600 text-indigo-700 hover:text-white font-bold text-xs transition border border-indigo-200 hover:border-indigo-600"
+              onClick={() => onOpenMeeting(employee.employeeKey, { meetingType: "General" })}
+              className="flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl bg-indigo-50 hover:bg-indigo-600 text-indigo-700 hover:text-white font-bold text-xs transition border border-indigo-200"
             >
               <FileText className="w-3.5 h-3.5" />
-              <span>Record Meeting</span>
+              <span>Meeting</span>
             </button>
+
+            {/* 🚩 Log Red Flag / Concern Button */}
+            <button
+              onClick={() =>
+                onOpenMeeting(employee.employeeKey, {
+                  meetingType: "Warning",
+                  warningGiven: "Yes",
+                })
+              }
+              className="flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl bg-rose-50 hover:bg-rose-600 text-rose-700 hover:text-white font-bold text-xs transition border border-rose-200"
+              title="Record conduct or performance Red Flag note"
+            >
+              <AlertTriangle className="w-3.5 h-3.5 text-rose-600 group-hover:text-white" />
+              <span>Log Red Flag</span>
+            </button>
+
             <button
               onClick={() => onOpenDocument(employee.employeeKey)}
-              className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-slate-50 hover:bg-slate-700 text-slate-700 hover:text-white font-bold text-xs transition border border-slate-200"
+              className="flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl bg-slate-50 hover:bg-slate-700 text-slate-700 hover:text-white font-bold text-xs transition border border-slate-200"
             >
               <FileCheck className="w-3.5 h-3.5" />
-              <span>Add Document</span>
+              <span>Document</span>
             </button>
+
             <button
               onClick={() => onOpenStatus(employee.employeeKey)}
-              className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-slate-50 hover:bg-slate-700 text-slate-700 hover:text-white font-bold text-xs transition border border-slate-200"
+              className="flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl bg-slate-50 hover:bg-slate-700 text-slate-700 hover:text-white font-bold text-xs transition border border-slate-200"
             >
               <User className="w-3.5 h-3.5" />
-              <span>Update Status</span>
+              <span>Status</span>
             </button>
           </div>
 

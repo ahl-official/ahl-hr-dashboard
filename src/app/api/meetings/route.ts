@@ -86,3 +86,38 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+export async function PATCH(req: NextRequest) {
+  try {
+    const payload = await req.json();
+    const { meetingId, recordStatus, performedBy } = payload;
+
+    if (!meetingId || !recordStatus) {
+      return NextResponse.json(
+        { success: false, error: "meetingId and recordStatus are required" },
+        { status: 400 }
+      );
+    }
+
+    const { updateMeetingStatus } = await import("@/lib/store");
+    const updated = await updateMeetingStatus(
+      meetingId,
+      recordStatus,
+      performedBy || "HR Command User"
+    );
+
+    if (!updated) {
+      return NextResponse.json(
+        { success: false, error: "Meeting record not found" },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({ success: true, data: updated });
+  } catch (error: any) {
+    return NextResponse.json(
+      { success: false, error: error?.message || "Failed to update meeting status" },
+      { status: 500 }
+    );
+  }
+}
