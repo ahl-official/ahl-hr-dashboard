@@ -1,0 +1,19 @@
+# Dependencies and build output
+node_modules/
+.next/
+out/
+coverage/
+
+# Local environment and credentials
+.env
+.env.local
+.env.*.local
+service account.json
+*.pem
+*.key
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+*.log
+
