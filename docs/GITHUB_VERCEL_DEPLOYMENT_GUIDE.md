@@ -87,7 +87,17 @@ Get-Content -Raw "service account.json" | ConvertFrom-Json | ConvertTo-Json -Com
 * **Output Directory**: `.next` (default)
 
 ### Step 3: Configure Environment Variables
-Expand the **Environment Variables** section and add the following 3 variables:
+
+You have two easy ways to set up the environment variables:
+
+#### Option A: Quick Paste from `.env.vercel` (Fastest - 10 seconds)
+We already prepared a ready-to-import `.env.vercel` file inside your `Next UI` folder (it is strictly ignored by git, so it will never go to GitHub).
+1. Open `Next UI/.env.vercel` in Notepad or VS Code.
+2. Select all text (`Ctrl + A`) and Copy (`Ctrl + C`).
+3. In Vercel's **Environment Variables** section, click into the key/value paste box and hit `Ctrl + V`. Vercel will automatically parse all 3 variables at once!
+
+#### Option B: Manual Input
+If you prefer adding them one by one:
 
 | Variable Name | Value | Description |
 | :--- | :--- | :--- |
