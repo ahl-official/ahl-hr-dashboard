@@ -57,6 +57,8 @@ interface HRCalendarViewProps {
     milestone?: string;
     scheduledDate?: string;
     meetingType?: any;
+    warningGiven?: "Yes" | "No";
+    discussionNotes?: string;
   }) => void;
   onSelectEmployee: (employee: EmployeeSummary) => void;
 }

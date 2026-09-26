@@ -69,6 +69,8 @@ export default function DashboardPage() {
     milestone?: string;
     scheduledDate?: string;
     meetingType?: MeetingType;
+    warningGiven?: "Yes" | "No";
+    discussionNotes?: string;
   } | null>(null);
   const [documentModalOpen, setDocumentModalOpen] = useState<boolean>(false);
   const [documentPrefillEmployeeKey, setDocumentPrefillEmployeeKey] = useState<string>("");

@@ -14,6 +14,8 @@ interface MeetingModalProps {
     milestone?: string;
     scheduledDate?: string;
     meetingType?: MeetingType;
+    warningGiven?: "Yes" | "No";
+    discussionNotes?: string;
   } | null;
   onSave: (payload: any) => Promise<boolean>;
 }
@@ -48,18 +50,20 @@ export function MeetingModal({
         setEmployeeKey(prefill.employeeKey || "");
         setMilestone(prefill.milestone || "");
         setScheduledDate(prefill.scheduledDate || "");
-        setMeetingType(prefill.meetingType || "Quarterly Review");
+        setMeetingType(prefill.meetingType || "General");
         setMeetingDate(prefill.scheduledDate ? prefill.scheduledDate : new Date().toISOString().slice(0, 10));
+        setWarningGiven(prefill.warningGiven || (prefill.meetingType === "Warning" ? "Yes" : "No"));
+        setDiscussionNotes(prefill.discussionNotes || "");
       } else {
         setEmployeeKey("");
         setMilestone("");
         setScheduledDate("");
         setMeetingDate(new Date().toISOString().slice(0, 10));
         setMeetingType("General");
+        setWarningGiven("No");
+        setDiscussionNotes("");
       }
       setRecordStatus("Open");
-      setWarningGiven("No");
-      setDiscussionNotes("");
       setActionTaken("");
       setNextFollowUpDate("");
       setAttachmentName("");
