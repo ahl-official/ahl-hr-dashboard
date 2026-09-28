@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { X, Paperclip, Loader2 } from "lucide-react";
 import { EmployeeSummary, MeetingType, MeetingStatus } from "@/types";
 import { MEETING_TYPES, MEETING_STATUSES } from "@/lib/constants";
+import { getTodayLocalIsoDate } from "@/lib/date-utils";
 
 interface MeetingModalProps {
   isOpen: boolean;
@@ -51,14 +52,14 @@ export function MeetingModal({
         setMilestone(prefill.milestone || "");
         setScheduledDate(prefill.scheduledDate || "");
         setMeetingType(prefill.meetingType || "General");
-        setMeetingDate(prefill.scheduledDate ? prefill.scheduledDate : new Date().toISOString().slice(0, 10));
+        setMeetingDate(prefill.scheduledDate ? prefill.scheduledDate : getTodayLocalIsoDate());
         setWarningGiven(prefill.warningGiven || (prefill.meetingType === "Warning" ? "Yes" : "No"));
         setDiscussionNotes(prefill.discussionNotes || "");
       } else {
         setEmployeeKey("");
         setMilestone("");
         setScheduledDate("");
-        setMeetingDate(new Date().toISOString().slice(0, 10));
+        setMeetingDate(getTodayLocalIsoDate());
         setMeetingType("General");
         setWarningGiven("No");
         setDiscussionNotes("");

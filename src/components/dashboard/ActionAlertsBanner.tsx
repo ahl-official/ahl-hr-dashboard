@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { MeetingRecord, EmployeeSummary } from "@/types";
 import { getActionFollowUpWhatsAppUrl } from "@/lib/whatsapp";
-import { formatDisplayDate, daysBetween, parseIsoDate } from "@/lib/date-utils";
+import { formatDisplayDate, daysBetween, parseIsoDate, getTodayLocalIsoDate } from "@/lib/date-utils";
 
 interface ActionAlertsBannerProps {
   meetings: MeetingRecord[];
@@ -36,7 +36,7 @@ export function ActionAlertsBanner({
   const [isExpanded, setIsExpanded] = useState<boolean>(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
 
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = getTodayLocalIsoDate();
   const todayDate = new Date();
 
   // 1. Identify all open meetings with action notes / follow-up dates

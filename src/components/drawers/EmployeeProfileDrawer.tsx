@@ -20,7 +20,7 @@ import {
   MessageCircle,
 } from "lucide-react";
 import { EmployeeSummary, DocumentRecord, MeetingRecord } from "@/types";
-import { initials, formatExactTenure, formatDisplayDate } from "@/lib/date-utils";
+import { initials, formatExactTenure, formatDisplayDate, getTodayLocalIsoDate } from "@/lib/date-utils";
 import { SENSITIVE_FIELDS_HR_MASK } from "@/lib/constants";
 import { getCheckInWhatsAppUrl } from "@/lib/whatsapp";
 
@@ -64,7 +64,7 @@ export function EmployeeProfileDrawer({
   );
   const activeRedFlag = redFlagMeetings.find((m) => m.recordStatus === "Open") || redFlagMeetings[0];
 
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = getTodayLocalIsoDate();
   const pendingActions = employeeMeetings.filter(
     (m) => m.nextFollowUpDate && m.recordStatus === "Open"
   );

@@ -19,7 +19,14 @@ import {
   MessageCircle,
 } from "lucide-react";
 import { EmployeeSummary, MeetingRecord, BirthdayEvent, ReviewEvent } from "@/types";
-import { formatDisplayDate, initials, parseIsoDate } from "@/lib/date-utils";
+import {
+  formatDisplayDate,
+  initials,
+  parseIsoDate,
+  toYearMonthDay,
+  formatLocalIsoDate,
+  getTodayLocalIsoDate,
+} from "@/lib/date-utils";
 import {
   getActionFollowUpWhatsAppUrl,
   getMilestoneWhatsAppUrl,
@@ -75,26 +82,55 @@ export function HRCalendarView({
   const [viewMode, setViewMode] = useState<"month" | "agenda">("month");
   const [activeFilter, setActiveFilter] = useState<"all" | CalendarEventType>("all");
   const [selectedDayStr, setSelectedDayStr] = useState<string>(
-    () => new Date().toISOString().slice(0, 10)
+    () => getTodayLocalIsoDate()
   );
+  const [isDayAgendaOpen, setIsDayAgendaOpen] = useState<boolean>(true);
   const [inspectedEvent, setInspectedEvent] = useState<CalendarEvent | null>(null);
 
   const currentYear = currentDate.getFullYear();
   const currentMonth = currentDate.getMonth();
 
-  // Navigation handlers
+  // Navigation handlers: when navigating months, sync selected date to match
   const prevMonth = () => {
-    setCurrentDate(new Date(currentYear, currentMonth - 1, 1));
+    const newDate = new Date(currentYear, currentMonth - 1, 1);
+    setCurrentDate(newDate);
+    const today = new Date();
+    if (newDate.getFullYear() === today.getFullYear() && newDate.getMonth() === today.getMonth()) {
+      setSelectedDayStr(getTodayLocalIsoDate());
+    } else {
+      setSelectedDayStr(toYearMonthDay(newDate.getFullYear(), newDate.getMonth(), 1));
+    }
   };
 
   const nextMonth = () => {
-    setCurrentDate(new Date(currentYear, currentMonth + 1, 1));
+    const newDate = new Date(currentYear, currentMonth + 1, 1);
+    setCurrentDate(newDate);
+    const today = new Date();
+    if (newDate.getFullYear() === today.getFullYear() && newDate.getMonth() === today.getMonth()) {
+      setSelectedDayStr(getTodayLocalIsoDate());
+    } else {
+      setSelectedDayStr(toYearMonthDay(newDate.getFullYear(), newDate.getMonth(), 1));
+    }
   };
 
   const jumpToToday = () => {
     const now = new Date();
     setCurrentDate(new Date(now.getFullYear(), now.getMonth(), 1));
-    setSelectedDayStr(now.toISOString().slice(0, 10));
+    setSelectedDayStr(getTodayLocalIsoDate());
+    setIsDayAgendaOpen(true);
+  };
+
+  const handleDayClick = (day: {
+    dateStr: string;
+    year: number;
+    month: number;
+    isCurrentMonth: boolean;
+  }) => {
+    setSelectedDayStr(day.dateStr);
+    setIsDayAgendaOpen(true);
+    if (!day.isCurrentMonth) {
+      setCurrentDate(new Date(day.year, day.month, 1));
+    }
   };
 
   const monthName = currentDate.toLocaleDateString("en-IN", {
@@ -140,7 +176,7 @@ export function HRCalendarView({
 
       // 2. Action Notes & Follow-ups due
       if (m.nextFollowUpDate && m.recordStatus !== "Cancelled") {
-        const todayStr = new Date().toISOString().slice(0, 10);
+        const todayStr = getTodayLocalIsoDate();
         const isOverdue = m.nextFollowUpDate < todayStr && m.recordStatus === "Open";
 
         list.push({
@@ -232,49 +268,61 @@ export function HRCalendarView({
     const lastDayOfMonth = new Date(currentYear, currentMonth + 1, 0);
 
     // Monday as index 0: (day + 6) % 7
-    let startDayOfWeek = (firstDayOfMonth.getDay() + 6) % 7;
+    const startDayOfWeek = (firstDayOfMonth.getDay() + 6) % 7;
 
     const daysInCurrentMonth = lastDayOfMonth.getDate();
     const daysInPrevMonth = new Date(currentYear, currentMonth, 0).getDate();
 
+    const todayIso = getTodayLocalIsoDate();
     const days = [];
 
     // Previous month padding
+    const prevMonthDate = new Date(currentYear, currentMonth - 1, 1);
+    const prevYear = prevMonthDate.getFullYear();
+    const prevMonthIndex = prevMonthDate.getMonth();
+
     for (let i = startDayOfWeek - 1; i >= 0; i--) {
       const d = daysInPrevMonth - i;
-      const date = new Date(currentYear, currentMonth - 1, d);
-      const dateStr = date.toISOString().slice(0, 10);
+      const dateStr = toYearMonthDay(prevYear, prevMonthIndex, d);
       days.push({
         dayNumber: d,
         dateStr,
+        year: prevYear,
+        month: prevMonthIndex,
         isCurrentMonth: false,
-        isToday: dateStr === new Date().toISOString().slice(0, 10),
+        isToday: dateStr === todayIso,
       });
     }
 
     // Current month days
     for (let d = 1; d <= daysInCurrentMonth; d++) {
-      const date = new Date(currentYear, currentMonth, d);
-      const dateStr = date.toISOString().slice(0, 10);
+      const dateStr = toYearMonthDay(currentYear, currentMonth, d);
       days.push({
         dayNumber: d,
         dateStr,
+        year: currentYear,
+        month: currentMonth,
         isCurrentMonth: true,
-        isToday: dateStr === new Date().toISOString().slice(0, 10),
+        isToday: dateStr === todayIso,
       });
     }
 
     // Next month padding to round up to complete weeks (multiple of 7)
+    const nextMonthDate = new Date(currentYear, currentMonth + 1, 1);
+    const nextYear = nextMonthDate.getFullYear();
+    const nextMonthIndex = nextMonthDate.getMonth();
+
     const totalSlots = Math.ceil(days.length / 7) * 7;
     const remaining = totalSlots - days.length;
     for (let d = 1; d <= remaining; d++) {
-      const date = new Date(currentYear, currentMonth + 1, d);
-      const dateStr = date.toISOString().slice(0, 10);
+      const dateStr = toYearMonthDay(nextYear, nextMonthIndex, d);
       days.push({
         dayNumber: d,
         dateStr,
+        year: nextYear,
+        month: nextMonthIndex,
         isCurrentMonth: false,
-        isToday: dateStr === new Date().toISOString().slice(0, 10),
+        isToday: dateStr === todayIso,
       });
     }
 
@@ -316,7 +364,7 @@ export function HRCalendarView({
         <button
           onClick={() =>
             onOpenRecordMeeting({
-              scheduledDate: new Date().toISOString().slice(0, 10),
+              scheduledDate: getTodayLocalIsoDate(),
             })
           }
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition shadow-sm self-start sm:self-center"
@@ -436,7 +484,7 @@ export function HRCalendarView({
                 return (
                   <div
                     key={idx}
-                    onClick={() => setSelectedDayStr(day.dateStr)}
+                    onClick={() => handleDayClick(day)}
                     className={`min-h-[75px] sm:min-h-[110px] lg:min-h-[125px] p-1 sm:p-2 flex flex-col justify-between transition group relative cursor-pointer ${
                       !day.isCurrentMonth ? "bg-slate-50/40 text-slate-400" : "bg-white"
                     } ${isSelected ? "ring-2 ring-indigo-500 ring-inset z-10" : "hover:bg-slate-50/60"}`}
@@ -510,69 +558,94 @@ export function HRCalendarView({
               })}
             </div>
 
-            {/* Mobile / Tablet Selected Day Agenda Strip */}
-            <div className="p-4 sm:p-5 bg-slate-50 border-t border-borderline">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-indigo-600" />
-                  <span className="text-xs sm:text-sm font-bold text-navy-DEFAULT">
-                    Schedule for {formatDisplayDate(selectedDayStr)}
-                  </span>
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 font-bold">
-                    {selectedDayEvents.length} items
-                  </span>
+            {/* Selected Day Agenda Strip (Collapsible & Dismissible) */}
+            {isDayAgendaOpen ? (
+              <div className="p-4 sm:p-5 bg-slate-50 border-t border-borderline animate-in fade-in duration-150">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-indigo-600" />
+                    <span className="text-xs sm:text-sm font-bold text-navy-DEFAULT">
+                      Schedule for {formatDisplayDate(selectedDayStr)}
+                    </span>
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 font-bold">
+                      {selectedDayEvents.length} items
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => onOpenRecordMeeting({ scheduledDate: selectedDayStr })}
+                      className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 transition"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Add for this date</span>
+                    </button>
+                    <button
+                      onClick={() => setIsDayAgendaOpen(false)}
+                      className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition"
+                      title="Hide day schedule"
+                      aria-label="Hide day schedule"
+                    >
+                      ✕
+                    </button>
+                  </div>
                 </div>
 
+                {selectedDayEvents.length === 0 ? (
+                  <div className="p-4 text-center rounded-xl bg-white border border-slate-200/80 text-xs text-muted">
+                    No meetings or milestones scheduled on this date. Click{" "}
+                    <button
+                      onClick={() => onOpenRecordMeeting({ scheduledDate: selectedDayStr })}
+                      className="text-indigo-600 font-bold underline"
+                    >
+                      Add for this date
+                    </button>{" "}
+                    to schedule one.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {selectedDayEvents.map((ev) => (
+                      <div
+                        key={ev.id}
+                        onClick={() => setInspectedEvent(ev)}
+                        className={`p-3 rounded-xl bg-white border shadow-xs hover:shadow-sm transition cursor-pointer flex flex-col justify-between ${ev.colorClass.border}`}
+                      >
+                        <div>
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <span className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full ${ev.colorClass.badge}`}>
+                              {ev.badgeLabel}
+                            </span>
+                            <span className="text-[11px] text-muted font-medium">{ev.dateStr}</span>
+                          </div>
+                          <h4 className="text-xs sm:text-sm font-bold text-navy-DEFAULT truncate">
+                            {ev.title}
+                          </h4>
+                          <p className="text-xs text-muted line-clamp-1 mt-0.5">{ev.subtitle}</p>
+                        </div>
+
+                        <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-indigo-600 font-semibold">
+                          <span>View Details</span>
+                          <Eye className="w-3.5 h-3.5" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="px-4 py-2.5 bg-slate-50 border-t border-borderline flex items-center justify-between text-xs text-muted">
+                <span className="font-medium text-slate-500">
+                  Viewing {monthName} · Click any day cell to inspect its schedule
+                </span>
                 <button
-                  onClick={() => onOpenRecordMeeting({ scheduledDate: selectedDayStr })}
-                  className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 transition"
+                  onClick={() => setIsDayAgendaOpen(true)}
+                  className="font-bold text-indigo-600 hover:text-indigo-800 transition flex items-center gap-1"
                 >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Add for this date</span>
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>Show Schedule ({selectedDayEvents.length} items)</span>
                 </button>
               </div>
-
-              {selectedDayEvents.length === 0 ? (
-                <div className="p-4 text-center rounded-xl bg-white border border-slate-200/80 text-xs text-muted">
-                  No meetings or milestones scheduled on this date. Click{" "}
-                  <button
-                    onClick={() => onOpenRecordMeeting({ scheduledDate: selectedDayStr })}
-                    className="text-indigo-600 font-bold underline"
-                  >
-                    Add for this date
-                  </button>{" "}
-                  to schedule one.
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {selectedDayEvents.map((ev) => (
-                    <div
-                      key={ev.id}
-                      onClick={() => setInspectedEvent(ev)}
-                      className={`p-3 rounded-xl bg-white border shadow-xs hover:shadow-sm transition cursor-pointer flex flex-col justify-between ${ev.colorClass.border}`}
-                    >
-                      <div>
-                        <div className="flex items-center justify-between gap-2 mb-1">
-                          <span className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full ${ev.colorClass.badge}`}>
-                            {ev.badgeLabel}
-                          </span>
-                          <span className="text-[11px] text-muted font-medium">{ev.dateStr}</span>
-                        </div>
-                        <h4 className="text-xs sm:text-sm font-bold text-navy-DEFAULT truncate">
-                          {ev.title}
-                        </h4>
-                        <p className="text-xs text-muted line-clamp-1 mt-0.5">{ev.subtitle}</p>
-                      </div>
-
-                      <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-indigo-600 font-semibold">
-                        <span>View Details</span>
-                        <Eye className="w-3.5 h-3.5" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            )}
           </div>
         )}
 
@@ -727,7 +800,7 @@ export function HRCalendarView({
                         formatDisplayDate(inspectedEvent.dateStr)
                       );
                     } else if (inspectedEvent.rawMeeting) {
-                      const todayStr = new Date().toISOString().slice(0, 10);
+                      const todayStr = getTodayLocalIsoDate();
                       const isOverdue =
                         inspectedEvent.rawMeeting.nextFollowUpDate &&
                         inspectedEvent.rawMeeting.nextFollowUpDate < todayStr;

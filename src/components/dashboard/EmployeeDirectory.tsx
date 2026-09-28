@@ -14,7 +14,7 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import { EmployeeSummary, MeetingRecord } from "@/types";
-import { initials, formatTenure, formatDisplayDate } from "@/lib/date-utils";
+import { initials, formatTenure, formatDisplayDate, getTodayLocalIsoDate } from "@/lib/date-utils";
 import { getCheckInWhatsAppUrl } from "@/lib/whatsapp";
 
 interface EmployeeDirectoryProps {
@@ -32,7 +32,7 @@ export function EmployeeDirectory({
   const [directoryFilter, setDirectoryFilter] = useState<"all" | "red_flags" | "action_pending">("all");
   const pageSize = 12;
 
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = getTodayLocalIsoDate();
 
   // Map employeeKey -> red flag meetings
   const redFlagsMap = useMemo(() => {

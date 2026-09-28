@@ -17,6 +17,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { CANONICAL_DEPARTMENTS, COMPANIES, GENDERS, DIETARY_PREFERENCES, VEHICLE_OWNERSHIPS, HOUSING_STATUSES } from "@/lib/constants";
+import { getTodayLocalIsoDate } from "@/lib/date-utils";
 import { EmployeeSummary } from "@/types";
 
 interface AddEmployeeWizardProps {
@@ -38,7 +39,7 @@ export function AddEmployeeWizard({ onEmployeeCreated, onCancel }: AddEmployeeWi
     designation: "",
     department: CANONICAL_DEPARTMENTS[0],
     manager: "",
-    doj: new Date().toISOString().slice(0, 10),
+    doj: getTodayLocalIsoDate(),
     experience: "",
     companyEmail: "",
 
@@ -83,7 +84,7 @@ export function AddEmployeeWizard({ onEmployeeCreated, onCancel }: AddEmployeeWi
     vehicleOwnership: "None",
     housingStatus: "Rented Property",
     signature: "",
-    signDate: new Date().toISOString().slice(0, 10),
+    signDate: getTodayLocalIsoDate(),
   });
 
   const updateField = (field: string, val: string) => {

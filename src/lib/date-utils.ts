@@ -13,6 +13,20 @@ export function startOfDay(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12, 0, 0, 0);
 }
 
+export function toYearMonthDay(year: number, month: number, day: number): string {
+  const m = String(month + 1).padStart(2, "0");
+  const d = String(day).padStart(2, "0");
+  return `${year}-${m}-${d}`;
+}
+
+export function formatLocalIsoDate(date: Date): string {
+  return toYearMonthDay(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+export function getTodayLocalIsoDate(): string {
+  return formatLocalIsoDate(new Date());
+}
+
 export function daysBetween(from: Date, to: Date): number {
   return Math.round((startOfDay(to).getTime() - startOfDay(from).getTime()) / 86400000);
 }
