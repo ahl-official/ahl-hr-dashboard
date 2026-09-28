@@ -22,6 +22,9 @@ interface ShellProps {
   onCloseMobileMenu: () => void;
   employeeCount: number;
   activeCount: number;
+  recordsCount?: number;
+  alertCount?: number;
+  reviewCount?: number;
 }
 
 export function Shell({
@@ -32,15 +35,42 @@ export function Shell({
   onCloseMobileMenu,
   employeeCount,
   activeCount,
+  recordsCount = 0,
+  alertCount = 0,
+  reviewCount = 0,
 }: ShellProps) {
   const navItems = [
     { id: "overview", label: "Overview", icon: LayoutDashboard },
     { id: "calendar", label: "HR Calendar", icon: Calendar },
-    { id: "celebrations", label: "Celebrations & Reviews", icon: PartyPopper },
-    { id: "records", label: "HR Records", icon: FileText },
+    {
+      id: "celebrations",
+      label: "Celebrations & Reviews",
+      icon: PartyPopper,
+      badge: reviewCount > 0 ? `${reviewCount}` : undefined,
+      badgeColor: "bg-indigo-500/20 text-indigo-300",
+    },
+    {
+      id: "records",
+      label: "HR Records",
+      icon: FileText,
+      badge: recordsCount > 0 ? `${recordsCount}` : undefined,
+      badgeColor: "bg-slate-700 text-slate-300",
+    },
     { id: "insights", label: "Insights", icon: BarChart3 },
-    { id: "directory", label: "Employee Directory", icon: Users },
-    { id: "add-employee", label: "Add Employee", icon: UserPlus },
+    {
+      id: "directory",
+      label: "Employee Directory",
+      icon: Users,
+      badge: employeeCount > 0 ? `${employeeCount}` : undefined,
+      badgeColor: "bg-slate-700 text-slate-300",
+    },
+    {
+      id: "add-employee",
+      label: "Add Employee",
+      icon: UserPlus,
+      badge: "+",
+      badgeColor: "bg-emerald-500/30 text-emerald-300 font-bold",
+    },
   ];
 
   // Close on escape
@@ -86,14 +116,25 @@ export function Shell({
               <button
                 key={item.id}
                 onClick={() => onNavigate(item.id)}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
                   isActive
                     ? "bg-indigo-600 text-white shadow-md shadow-indigo-950/30"
                     : "text-slate-300 hover:text-white hover:bg-slate-800/60"
                 }`}
               >
-                <Icon className={`w-4 h-4 ${isActive ? "text-white" : "text-slate-400"}`} />
-                <span>{item.label}</span>
+                <div className="flex items-center gap-3 min-w-0">
+                  <Icon className={`w-4 h-4 shrink-0 ${isActive ? "text-white" : "text-slate-400"}`} />
+                  <span className="truncate">{item.label}</span>
+                </div>
+                {item.badge && (
+                  <span
+                    className={`text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                      isActive ? "bg-white/20 text-white" : item.badgeColor
+                    }`}
+                  >
+                    {item.badge}
+                  </span>
+                )}
               </button>
             );
           })}
@@ -163,14 +204,25 @@ export function Shell({
                       onNavigate(item.id);
                       onCloseMobileMenu();
                     }}
-                    className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-medium transition ${
+                    className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-sm font-medium transition ${
                       isActive
                         ? "bg-indigo-600 text-white shadow"
                         : "text-slate-300 hover:bg-slate-700/50"
                     }`}
                   >
-                    <Icon className="w-4 h-4" />
-                    <span>{item.label}</span>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <Icon className="w-4 h-4 shrink-0" />
+                      <span className="truncate">{item.label}</span>
+                    </div>
+                    {item.badge && (
+                      <span
+                        className={`text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                          isActive ? "bg-white/20 text-white" : item.badgeColor
+                        }`}
+                      >
+                        {item.badge}
+                      </span>
+                    )}
                   </button>
                 );
               })}

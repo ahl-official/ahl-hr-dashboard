@@ -99,7 +99,7 @@ export function EmployeeDirectory({
   const actionPendingTotalCount = Array.from(actionItemsMap.keys()).length;
 
   return (
-    <section id="directory" className="mb-12">
+    <section id="directory" className="mb-12 scroll-mt-24">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
         <div>
           <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-600 block mb-0.5">

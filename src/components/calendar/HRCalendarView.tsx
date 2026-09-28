@@ -343,7 +343,7 @@ export function HRCalendarView({
   }, [filteredEvents, currentYear, currentMonth]);
 
   return (
-    <section id="calendar" className="mb-12">
+    <section id="calendar" className="mb-12 scroll-mt-24">
       {/* Section Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>

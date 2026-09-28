@@ -301,17 +301,49 @@ export default function DashboardPage() {
   const handleNavigation = (sectionId: string) => {
     if (sectionId === "add-employee") {
       setShowAddEmployeeWizard(true);
+      setActiveSection("add-employee");
       return;
     }
 
     setShowAddEmployeeWizard(false);
     setActiveSection(sectionId);
 
-    const el = document.getElementById(sectionId);
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
+    // Ensure DOM has mounted before scrolling
+    setTimeout(() => {
+      const el = document.getElementById(sectionId);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }, 60);
   };
+
+  // Dynamic Scroll-Spy: updates sidebar active tab as user scrolls through sections
+  useEffect(() => {
+    if (showAddEmployeeWizard || isLoading) return;
+
+    const sectionIds = ["overview", "calendar", "celebrations", "records", "insights", "directory"];
+    const elements = sectionIds
+      .map((id) => document.getElementById(id))
+      .filter((el): el is HTMLElement => Boolean(el));
+
+    if (!elements.length) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries.find((e) => e.isIntersecting);
+        if (visible && visible.target.id) {
+          setActiveSection(visible.target.id);
+        }
+      },
+      {
+        rootMargin: "-20% 0px -65% 0px",
+        threshold: 0,
+      }
+    );
+
+    elements.forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, [showAddEmployeeWizard, isLoading]);
 
   return (
     <Shell
@@ -321,6 +353,8 @@ export default function DashboardPage() {
       onCloseMobileMenu={() => setMobileMenuOpen(false)}
       employeeCount={employees.length}
       activeCount={activeCount}
+      recordsCount={meetings.length}
+      reviewCount={milestones30.length}
     >
       <Header
         lastUpdated={lastUpdated}
@@ -367,7 +401,7 @@ export default function DashboardPage() {
             />
 
             {/* 1. Overview KPIs Section */}
-            <section id="overview">
+            <section id="overview" className="scroll-mt-24">
               <OverviewKPIs
                 totalEmployees={filteredEmployees.length}
                 newThisMonth={newThisMonth}
@@ -393,7 +427,7 @@ export default function DashboardPage() {
             />
 
             {/* 3. Celebrations & Reviews Section */}
-            <section id="celebrations">
+            <section id="celebrations" className="scroll-mt-24">
               <CelebrationsAndReviews
                 birthdays={birthdays}
                 milestones7={milestones7}
