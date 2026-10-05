@@ -24,7 +24,7 @@ export function DocumentModal({
   const [documentType, setDocumentType] = useState<DocumentType>("Joining Letter");
   const [documentStatus, setDocumentStatus] = useState<DocumentStatus>("Pending");
   const [notes, setNotes] = useState("");
-  const [uploadedBy, setUploadedBy] = useState("HR Command User");
+  const uploadedBy = "HR"; // becomes the signed-in user once there is a login
   const [fileName, setFileName] = useState("");
   const [driveLink, setDriveLink] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -57,7 +57,7 @@ export function DocumentModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!employeeKey || !uploadedBy.trim()) return;
+    if (!employeeKey) return;
 
     if ((documentStatus === "Uploaded" || documentStatus === "Verified") && !fileName) {
       alert("Please attach a document file before marking status as Uploaded or Verified.");
@@ -92,10 +92,10 @@ export function DocumentModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
-      <div className="fixed inset-0 bg-navy-900/60 backdrop-blur-sm" onClick={!isSubmitting ? onClose : undefined} />
+    <div className="fixed inset-0 z-50 flex justify-center p-4 overflow-y-auto">
+      <div className="fixed inset-0 bg-navy-900/60" onClick={!isSubmitting ? onClose : undefined} />
 
-      <div className="relative bg-surface rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-borderline z-10 my-8">
+      <div className="relative bg-surface rounded-2xl max-w-lg w-full p-6 shadow-md border border-borderline z-10 my-auto">
         <div className="flex items-center justify-between pb-4 mb-4 border-b border-borderline">
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-xl bg-indigo-50 text-indigo-600">
@@ -198,19 +198,6 @@ export function DocumentModal({
               onChange={(e) => setNotes(e.target.value.slice(0, 2000))}
               rows={2}
               placeholder="e.g. Countersigned copy on file in locker, original Aadhaar verified..."
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-indigo-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-              Uploaded / Verified By *
-            </label>
-            <input
-              type="text"
-              value={uploadedBy}
-              onChange={(e) => setUploadedBy(e.target.value)}
-              required
               className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-indigo-500"
             />
           </div>

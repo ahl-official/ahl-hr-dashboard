@@ -47,7 +47,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           <div
             key={toast.id}
             role="status"
-            className={`pointer-events-auto flex items-center justify-between p-4 rounded-xl shadow-lg border text-sm font-medium transition-all transform duration-300 translate-y-0 ${
+            className={`pointer-events-auto flex items-center justify-between p-4 rounded-xl shadow-md border text-sm font-medium transition-all transform duration-300 translate-y-0 ${
               toast.type === "error"
                 ? "bg-rose-50 border-rose-200 text-rose-900"
                 : toast.type === "info"

@@ -5,34 +5,15 @@
 
 export function cleanPhoneNumber(mobile?: string): string {
   if (!mobile) return "";
-  const digits = mobile.replace(/\D/g, "");
-  if (!digits) return "";
-  // If 10-digit Indian mobile number, prefix with country code 91
+  // Sheets often hold two numbers ("98765 43210 / 91234 56789"); use the first
+  const first = mobile.split(/[\/,;|]|\s+or\s+/i)[0];
+  let digits = first.replace(/\D/g, "");
+  if (digits.startsWith("00")) digits = digits.slice(2);
   if (digits.length === 10) return `91${digits}`;
-  // If 11 digits starting with 0, replace 0 with 91
+  // 11 digits starting with 0 (trunk prefix): replace the 0 with 91
   if (digits.length === 11 && digits.startsWith("0")) return `91${digits.slice(1)}`;
-  return digits;
-}
-
-/**
- * Generate 1-click WhatsApp message URL for Onboarding/Tenure Milestones (7D, 15D, 1M, 3M, etc.)
- */
-export function getMilestoneWhatsAppUrl(
-  mobile: string,
-  employeeName: string,
-  milestoneLabel: string,
-  scheduledDate: string
-): string {
-  const phone = cleanPhoneNumber(mobile);
-  const firstName = employeeName.trim().split(" ")[0];
-  const message = `Hello ${firstName}! 🎉 Congratulations on your *${milestoneLabel}* milestone with American Hairline!
-
-HR would like to schedule a brief check-in review discussion with you on *${scheduledDate}*.
-
-Please reply to confirm if this date and time works for you, or let us know an alternative convenient slot. Have a great day!`;
-
-  const encoded = encodeURIComponent(message);
-  return phone ? `https://wa.me/${phone}?text=${encoded}` : `https://wa.me/?text=${encoded}`;
+  // Anything else must look like a full international number, otherwise don't guess
+  return digits.length >= 11 && digits.length <= 15 ? digits : "";
 }
 
 /**
@@ -56,36 +37,6 @@ Hello ${firstName}, this is a gentle follow-up from AHL HR regarding the schedul
 Target Due Date: *${dueDate}*
 
 Kindly update HR on the current progress or status at your earliest convenience. Thank you!`;
-
-  const encoded = encodeURIComponent(message);
-  return phone ? `https://wa.me/${phone}?text=${encoded}` : `https://wa.me/?text=${encoded}`;
-}
-
-/**
- * Generate 1-click WhatsApp message URL for Birthday Celebrations
- */
-export function getBirthdayWhatsAppUrl(mobile: string, employeeName: string): string {
-  const phone = cleanPhoneNumber(mobile);
-  const firstName = employeeName.trim().split(" ")[0];
-  const message = `Dear ${firstName}, 🎂✨
-Happy Birthday from all of us at American Hairline!
-
-Wishing you good health, joy, and great milestones ahead. Have a wonderful celebration! 🎉`;
-
-  const encoded = encodeURIComponent(message);
-  return phone ? `https://wa.me/${phone}?text=${encoded}` : `https://wa.me/?text=${encoded}`;
-}
-
-/**
- * Generic HR Discussion / Check-in WhatsApp URL
- */
-export function getCheckInWhatsAppUrl(mobile: string, employeeName: string, topic?: string): string {
-  const phone = cleanPhoneNumber(mobile);
-  const firstName = employeeName.trim().split(" ")[0];
-  const message = `Hello ${firstName},
-AHL HR would like to coordinate a brief 1-on-1 check-in discussion${topic ? ` regarding *${topic}*` : ""}.
-
-Please let us know your availability today. Thank you!`;
 
   const encoded = encodeURIComponent(message);
   return phone ? `https://wa.me/${phone}?text=${encoded}` : `https://wa.me/?text=${encoded}`;

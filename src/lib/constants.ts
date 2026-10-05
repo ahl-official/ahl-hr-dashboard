@@ -49,6 +49,7 @@ export const DOCUMENT_TYPES = [
   "Meeting Attachment",
   "Exit",
   "Relieving Letter",
+  "Onboarding Form",
   "Other",
 ] as const;
 
@@ -84,29 +85,30 @@ export const SENSITIVE_FIELDS_HR_MASK: string[] = [
   "Current Address",
 ];
 
+// Muted, brand-led categorical palette (key names kept so chart code is unchanged)
 export const CHART_COLORS = {
-  navy: "#14213d",
-  indigo: "#4f46e5",
-  emerald: "#10b981",
-  sky: "#0ea5e9",
-  violet: "#8b5cf6",
-  rose: "#f43f5e",
-  amber: "#f59e0b",
-  slate: "#64748b",
-  light: "#e2e8f0",
+  navy: "#0B1F2A",
+  indigo: "#136573", // brand teal
+  emerald: "#5B8F6B", // sage
+  sky: "#3B6EA5", // steel blue
+  violet: "#7A5C99", // plum
+  rose: "#B5614A", // clay
+  amber: "#C08A2B", // ochre
+  slate: "#64748B",
+  light: "#E2E8F0",
 };
 
 export const PALETTE = [
-  "#4f46e5", // Indigo
-  "#10b981", // Emerald
-  "#0ea5e9", // Sky
-  "#8b5cf6", // Violet
-  "#f59e0b", // Amber
-  "#f43f5e", // Rose
-  "#64748b", // Slate
-  "#059669",
-  "#0284c7",
-  "#d97706",
-  "#7c3aed",
-  "#e11d48",
+  "#136573",
+  "#3B6EA5",
+  "#C08A2B",
+  "#5B8F6B",
+  "#7A5C99",
+  "#B5614A",
+  "#64748B",
+  "#4BA3B2",
+  "#8FB3D9",
+  "#D9B36A",
+  "#9CC3A8",
+  "#B9A3CF",
 ];

@@ -23,7 +23,7 @@ export function StatusModal({
   const [employmentStatus, setEmploymentStatus] = useState<EmploymentStatus>("Active");
   const [lastWorkingDate, setLastWorkingDate] = useState("");
   const [exitReason, setExitReason] = useState("");
-  const [updatedBy, setUpdatedBy] = useState("HR Operations Lead");
+  const updatedBy = "HR"; // becomes the signed-in user once there is a login
   const [relievingName, setRelievingName] = useState("");
   const [relievingLetterLink, setRelievingLetterLink] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -62,7 +62,7 @@ export function StatusModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!employeeKey || !updatedBy.trim()) return;
+    if (!employeeKey) return;
 
     if (employmentStatus === "Left" && !lastWorkingDate) {
       alert("Last working date is mandatory when changing status to Left.");
@@ -96,10 +96,10 @@ export function StatusModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
-      <div className="fixed inset-0 bg-navy-900/60 backdrop-blur-sm" onClick={!isSubmitting ? onClose : undefined} />
+    <div className="fixed inset-0 z-50 flex justify-center p-4 overflow-y-auto">
+      <div className="fixed inset-0 bg-navy-900/60" onClick={!isSubmitting ? onClose : undefined} />
 
-      <div className="relative bg-surface rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-borderline z-10 my-8">
+      <div className="relative bg-surface rounded-2xl max-w-lg w-full p-6 shadow-md border border-borderline z-10 my-auto">
         <div className="flex items-center justify-between pb-4 mb-4 border-b border-borderline">
           <div className="flex items-center gap-2.5">
             <div className={`p-2 rounded-xl ${employmentStatus === "Left" ? "bg-rose-50 text-rose-600" : "bg-emerald-50 text-emerald-600"}`}>
@@ -226,19 +226,6 @@ export function StatusModal({
               </div>
             </div>
           )}
-
-          <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-              Authorized Action By *
-            </label>
-            <input
-              type="text"
-              value={updatedBy}
-              onChange={(e) => setUpdatedBy(e.target.value)}
-              required
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-indigo-500"
-            />
-          </div>
 
           <div className="pt-4 border-t border-borderline flex items-center justify-end gap-3">
             <button

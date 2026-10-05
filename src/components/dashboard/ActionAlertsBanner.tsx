@@ -100,7 +100,7 @@ export function ActionAlertsBanner({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="font-extrabold text-sm sm:text-base text-rose-950">
+                <h3 className="font-semibold text-sm sm:text-base text-rose-950">
                   HR Action Reminders & Red Flag Alerts
                 </h3>
                 {overdueActions.length > 0 && (

@@ -19,8 +19,10 @@ import {
   updateValues,
 } from "./google-sheets";
 import { trustedNowMs } from "./google-auth";
+import { ValidationError, isIsoDate, isEmail } from "./validate";
+import { formatEmployeeId, nextEmployeeNumber } from "./employee-id";
 
-const RANGES = ["Employees!A:AV", "HR_Meetings!A:Q", "HR_Documents!A:M", "HR_Status!A:L", "Departments!A:D"] as const;
+const RANGES = ["Employees!A:AX", "HR_Meetings!A:Q", "HR_Documents!A:M", "HR_Status!A:L", "Departments!A:D"] as const;
 
 type Snapshot = {
   employees: EmployeeSummary[];
@@ -205,14 +207,28 @@ export async function getEmployeeByKey(key: string) { return (await loadSnapshot
 
 export async function addEmployeeRecord(payload: any): Promise<EmployeeSummary> {
   const snapshot = await loadSnapshot(true);
-  const fullName = clean(payload.fullName), employeeId = clean(payload.employeeId), department = clean(payload.department);
-  if (!fullName || !employeeId || !department) throw new Error("Full name, employee ID, and department are required.");
-  if (snapshot.employees.some((employee) => employee.employeeId.toLowerCase() === employeeId.toLowerCase())) throw new Error(`Employee ID ${employeeId} already exists.`);
-  if (!snapshot.departments.some((item) => item.active && item.departmentName === department)) throw new Error("Please select a valid active department.");
+  const fullName = clean(payload.fullName), department = clean(payload.department);
+  if (!fullName || !department || !clean(payload.company)) throw new ValidationError("Full name, company and department are required.");
+  // The ID is generated here (first come, first served) unless HR supplied one explicitly.
+  let employeeId = clean(payload.employeeId) || formatEmployeeId(clean(payload.company), department, nextEmployeeNumber(snapshot.employees, clean(payload.company)));
+  // Employee IDs are numbered per company (AHL, YDigital and Alchemane each have their own "40"),
+  // so uniqueness is (company, id), not id alone.
+  const company = clean(payload.company);
+  if (snapshot.employees.some((employee) => employee.employeeId.toLowerCase() === employeeId.toLowerCase() && employee.company.toLowerCase() === company.toLowerCase())) throw new ValidationError(`Employee ID ${employeeId} already exists in ${company || "this company"}.`, 409);
+  if (!snapshot.departments.some((item) => item.active && item.departmentName === department)) throw new ValidationError("Please select a valid active department.");
 
-  const headerRows = await getValues("Employees!A1:AV1");
+  for (const [label, value] of [["Date of joining", payload.doj], ["Date of birth", payload.dob]] as const) {
+    if (value && !isIsoDate(value)) throw new ValidationError(`${label} must be a valid date (YYYY-MM-DD).`);
+  }
+  if (payload.dob && payload.doj && payload.dob >= payload.doj) throw new ValidationError("Date of birth must be before date of joining.");
+  for (const [label, value] of [["Company email", payload.companyEmail], ["Personal email", payload.personalEmail]] as const) {
+    if (value && !isEmail(value)) throw new ValidationError(`${label} is not a valid email address.`);
+  }
+
+  const headerRows = await getValues("Employees!A1:AX1");
   const headers = (headerRows[0] || []).map(clean), map = headerMap(headers), values = Array(headers.length).fill("");
   const supplied = new Map<string, unknown>((payload.masterFields || []).map((item: any) => [normalizeHeader(item.label), item.value]));
+  supplied.set("employeeid", employeeId);
   const fallback: Record<string, unknown> = { fullname: fullName, employeeid: employeeId, company: payload.company,
     currentdesignation: payload.designation, department, reportingmanager: payload.manager, dateofjoiningdoj: payload.doj,
     dateofbirth: payload.dob, gender: payload.gender, mobilenumber: payload.mobile, companyemailid: payload.companyEmail,
@@ -226,12 +242,24 @@ export async function addEmployeeRecord(payload: any): Promise<EmployeeSummary> 
     if (key === "pdflink" && value === "#") value = "";
     values[index] = value ?? "";
   });
-  const appended = await appendValues("Employees!A:AV", [values]);
+  const appended = await appendValues("Employees!A:AX", [values]);
   const match = clean(appended.updates?.updatedRange).match(/![A-Z]+(\d+):/);
   const rowNumber = match ? Number(match[1]) : snapshot.employees.length + 2;
   const timestampIndex = map.get("timestamp") ?? 0;
   const key = employeeKeyFromSerial(values[timestampIndex], employeeId, fullName, rowNumber);
   await updateValues(`Employees!AV${rowNumber}`, [[key]]);
+  // Concurrency guard: if another save grabbed the same number at the same moment, the earlier row wins
+  // and this one is renumbered.
+  const idIndex = map.get("employeeid");
+  if (idIndex !== undefined) {
+    const col = String.fromCharCode(65 + idIndex);
+    const column = (await getValues(`Employees!${col}:${col}`)).map((r) => clean(r[0]));
+    if (column.indexOf(employeeId) !== rowNumber - 1 && column.filter((v) => v === employeeId).length > 1) {
+      const fresh = column.slice(1).map((v) => ({ company: clean(payload.company), employeeId: v }));
+      employeeId = formatEmployeeId(clean(payload.company), department, nextEmployeeNumber(fresh, clean(payload.company)));
+      await updateValues(`Employees!${col}${rowNumber}`, [[employeeId]]);
+    }
+  }
   const employee: EmployeeSummary = { employeeKey: key, rowNumber, fullName, employeeId, company: clean(payload.company),
     designation: clean(payload.designation), department, manager: clean(payload.manager), doj: clean(payload.doj), dob: clean(payload.dob),
     gender: clean(payload.gender), mobile: clean(payload.mobile), companyEmail: clean(payload.companyEmail), personalEmail: clean(payload.personalEmail),
@@ -242,10 +270,29 @@ export async function addEmployeeRecord(payload: any): Promise<EmployeeSummary> 
   return employee;
 }
 
+function columnLetter(index: number) {
+  let s = "";
+  for (let n = index + 1; n > 0; n = Math.floor((n - 1) / 26)) s = String.fromCharCode(65 + ((n - 1) % 26)) + s;
+  return s;
+}
+
+/** Writes the signed-form PDF link into the "PDF Link" column of an employee's master row. */
+export async function setEmployeePdfLink(rowNumber: number, link: string) {
+  const headers = ((await getValues("Employees!A1:AX1"))[0] || []).map(clean);
+  const index = headers.findIndex((h) => normalizeHeader(h) === "pdflink");
+  if (index < 0) return;
+  await updateValues(`Employees!${columnLetter(index)}${rowNumber}`, [[link]]);
+  invalidateCache();
+}
+
 export async function getAllMeetings() { return (await loadSnapshot()).meetings; }
 export async function addMeetingRecord(meeting: any): Promise<MeetingRecord> {
   const snapshot = await loadSnapshot(true), employee = snapshot.employees.find((item) => item.employeeKey === clean(meeting.employeeKey));
-  if (!employee) throw new Error("Selected employee was not found.");
+  if (!employee) throw new ValidationError("Selected employee was not found.", 404);
+  for (const [label, value] of [["Scheduled date", meeting.scheduledDate], ["Meeting date", meeting.meetingDate], ["Follow-up date", meeting.nextFollowUpDate]] as const) {
+    if (value && !isIsoDate(value)) throw new ValidationError(`${label} must be a valid date (YYYY-MM-DD).`);
+  }
+  if (meeting.meetingType && !["Onboarding Feedback", "Quarterly Review", "Appraisal", "Warning", "General", "Follow-Up", "Exit Meeting"].includes(meeting.meetingType)) throw new ValidationError("Unknown meeting type.");
   const meetingId = validRecordId(meeting.meetingId, "MTG"), existing = snapshot.meetings.find((item) => item.meetingId === meetingId);
   if (existing) return existing;
   const now = nowSerial();
@@ -261,6 +308,7 @@ export async function addMeetingRecord(meeting: any): Promise<MeetingRecord> {
 }
 
 export async function updateMeetingStatus(meetingId: string, status: "Open" | "Completed" | "Cancelled", performedBy = "HR Command User"): Promise<MeetingRecord | null> {
+  if (!["Open", "Completed", "Cancelled"].includes(status)) throw new ValidationError("recordStatus must be Open, Completed or Cancelled.");
   const snapshot = await loadSnapshot(true);
   const targetMeeting = snapshot.meetings.find((m) => m.meetingId === meetingId);
   if (!targetMeeting) return null;
@@ -294,11 +342,12 @@ export async function updateMeetingStatus(meetingId: string, status: "Open" | "C
 export async function getAllDocuments() { return (await loadSnapshot()).documents; }
 export async function addDocumentRecord(document: any): Promise<DocumentRecord> {
   const snapshot = await loadSnapshot(true), employee = snapshot.employees.find((item) => item.employeeKey === clean(document.employeeKey));
-  if (!employee) throw new Error("Selected employee was not found.");
+  if (!employee) throw new ValidationError("Selected employee was not found.", 404);
   const documentId = validRecordId(document.documentId, "DOC"), existing = snapshot.documents.find((item) => item.documentId === documentId);
   if (existing) return existing;
   const status = clean(document.documentStatus) || "Pending", driveLink = clean(document.driveLink);
-  if (["Uploaded", "Verified"].includes(status) && !/^https:\/\//i.test(driveLink)) throw new Error("A permanent Google Drive link is required before a document can be Uploaded or Verified.");
+  if (!["Missing", "Pending", "Uploaded", "Verified"].includes(status)) throw new ValidationError("documentStatus must be Missing, Pending, Uploaded or Verified.");
+  if (["Uploaded", "Verified"].includes(status) && !/^https:\/\//i.test(driveLink)) throw new ValidationError("A permanent Google Drive link is required before a document can be Uploaded or Verified.");
   const now = nowSerial();
   const row = [documentId, employee.employeeKey, employee.employeeId, employee.fullName, clean(document.documentType) || "Other", status,
     clean(document.fileName), clean(document.driveFileId), driveLink, clean(document.notes), clean(document.uploadedBy), now, now];
@@ -311,9 +360,11 @@ export async function addDocumentRecord(document: any): Promise<DocumentRecord> 
 
 export async function updateEmployeeStatusRecord(payload: any): Promise<StatusRecord> {
   const snapshot = await loadSnapshot(true), employee = snapshot.employees.find((item) => item.employeeKey === clean(payload.employeeKey));
-  if (!employee) throw new Error("Selected employee was not found.");
+  if (!employee) throw new ValidationError("Selected employee was not found.", 404);
   const status = payload.employmentStatus === "Left" ? "Left" : "Active";
-  if (status === "Left" && !payload.lastWorkingDate) throw new Error("Last working date is required when an employee leaves.");
+  if (status === "Left" && !payload.lastWorkingDate) throw new ValidationError("Last working date is required when an employee leaves.");
+  if (status === "Left" && !isIsoDate(payload.lastWorkingDate)) throw new ValidationError("Last working date must be a valid date (YYYY-MM-DD).");
+  if (status === "Left" && employee.doj && payload.lastWorkingDate < employee.doj) throw new ValidationError("Last working date cannot be before the date of joining.");
   const rawRows = await getValues("HR_Status!A:L"), existingIndex = rawRows.slice(1).findIndex((row) => clean(row[0]) === employee.employeeKey);
   const previous = existingIndex >= 0 ? rawRows[existingIndex + 1] : Array(12).fill(""), now = nowSerial();
   const row = [employee.employeeKey, employee.employeeId, employee.fullName, status,

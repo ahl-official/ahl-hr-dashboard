@@ -49,6 +49,37 @@ export async function uploadHrAttachment(attachment: AttachmentPayload, employee
   if (!bytes.length || bytes.length > MAX_BYTES || (attachment.size && attachment.size > MAX_BYTES)) throw new Error("Attachment must be smaller than 5 MB.");
 
   const folderName = `${safeName(employeeName)} [${employeeKey}]`;
+
+  // Preferred path: the Apps Script uploader. A Google service account has no Drive storage of its own,
+  // so the file is saved by a script that runs as the HR Drive owner.
+  if (process.env.DRIVE_UPLOADER_URL) {
+    // Google sometimes loses the reply to a POST even though the file was saved. The script is idempotent
+    // (same file name = same file), so retrying is safe.
+    const payload = JSON.stringify({
+      secret: process.env.DRIVE_UPLOADER_SECRET || "",
+      folderName,
+      fileName: `${safeName(recordId)} - ${safeName(attachment.name)}`,
+      mimeType: attachment.mimeType,
+      base64: bytes.toString("base64"),
+    });
+    let out: { ok?: boolean; fileId?: string; url?: string; error?: string } | null = null;
+    for (let attempt = 1; attempt <= 4 && !out; attempt++) {
+      try {
+        const res = await fetch(process.env.DRIVE_UPLOADER_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: payload, signal: AbortSignal.timeout(45000) });
+        out = JSON.parse(await res.text());
+        // a reply with neither a file nor an error is a stray/lost reply, not an answer: ask again
+        if (out && !out.fileId && !out.error) out = null;
+        if (!out && attempt < 4) await new Promise((r) => setTimeout(r, 1500 * attempt));
+      } catch {
+        out = null;
+        if (attempt < 4) await new Promise((r) => setTimeout(r, 1500 * attempt));
+      }
+    }
+    if (!out) throw new Error("The Drive uploader is not answering. Please try again in a minute.");
+    if (!out.ok || !out.fileId) throw new Error(`Drive uploader: ${out.error || "upload failed"}`);
+    return { fileName: attachment.name, driveFileId: out.fileId, driveLink: out.url || `https://drive.google.com/file/d/${out.fileId}/view` };
+  }
+
   const parentId = await findEmployeeFolder(folderName) || await createEmployeeFolder(folderName);
   const fileName = `${safeName(recordId)} - ${safeName(attachment.name)}`;
   const form = new FormData();

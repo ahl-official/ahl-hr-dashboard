@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAllEmployees, addEmployeeRecord } from "@/lib/store";
 
+import { errorStatus } from "@/lib/validate";
+
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
@@ -64,7 +66,7 @@ export async function GET(req: NextRequest) {
   } catch (error: any) {
     return NextResponse.json(
       { success: false, error: error?.message || "Failed to fetch employees" },
-      { status: 500 }
+      { status: errorStatus(error) }
     );
   }
 }
@@ -74,9 +76,9 @@ export async function POST(req: NextRequest) {
     const idempotencyKey = req.headers.get("Idempotency-Key");
     const payload = await req.json();
 
-    if (!payload.fullName || !payload.employeeId || !payload.company || !payload.department) {
+    if (!payload.fullName || !payload.company || !payload.department) {
       return NextResponse.json(
-        { success: false, error: "Missing required fields (fullName, employeeId, company, department)" },
+        { success: false, error: "Missing required fields (fullName, company, department)" },
         { status: 400 }
       );
     }
@@ -91,7 +93,7 @@ export async function POST(req: NextRequest) {
   } catch (error: any) {
     return NextResponse.json(
       { success: false, error: error?.message || "Failed to create employee" },
-      { status: 500 }
+      { status: errorStatus(error) }
     );
   }
 }

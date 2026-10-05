@@ -1,10 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
-import { Cake, CalendarCheck2, ChevronRight, UserPlus, Check, MessageCircle } from "lucide-react";
+import { Cake, CalendarCheck2, ChevronRight, UserPlus, Check } from "lucide-react";
 import { BirthdayEvent, ReviewEvent } from "@/types";
 import { formatEventDate, humanCountdown, birthdayAgeText, initials, formatExactTenure, formatDisplayDate } from "@/lib/date-utils";
-import { getMilestoneWhatsAppUrl, getBirthdayWhatsAppUrl } from "@/lib/whatsapp";
 
 interface CelebrationsAndReviewsProps {
   birthdays: BirthdayEvent[];
@@ -83,7 +82,7 @@ export function CelebrationsAndReviews({
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-700 font-bold text-xs flex flex-col items-center justify-center shrink-0 border border-rose-100">
-                        <span className="text-[13px] leading-tight font-extrabold">{parts[0]}</span>
+                        <span className="text-[13px] leading-tight font-semibold">{parts[0]}</span>
                         <span className="text-[10px] leading-tight uppercase font-medium">{parts[1]}</span>
                       </div>
                       <div className="min-w-0">
@@ -108,17 +107,6 @@ export function CelebrationsAndReviews({
                       >
                         {humanCountdown(item.daysUntil)}
                       </span>
-                      <button
-                        onClick={() => {
-                          const url = getBirthdayWhatsAppUrl(item.employee.mobile, item.employeeName);
-                          window.open(url, "_blank");
-                        }}
-                        className="p-1.5 rounded-lg bg-pink-50 hover:bg-pink-600 text-pink-600 hover:text-white border border-pink-200 transition shadow-sm"
-                        title={`Send birthday greeting on WhatsApp to ${item.employeeName}`}
-                        aria-label={`Wish ${item.employeeName}`}
-                      >
-                        <MessageCircle className="w-3.5 h-3.5" />
-                      </button>
                     </div>
                   </div>
                 );
@@ -200,7 +188,7 @@ export function CelebrationsAndReviews({
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-700 font-bold text-xs flex flex-col items-center justify-center shrink-0 border border-amber-100">
-                        <span className="text-[13px] leading-tight font-extrabold">{parts[0]}</span>
+                        <span className="text-[13px] leading-tight font-semibold">{parts[0]}</span>
                         <span className="text-[10px] leading-tight uppercase font-medium">{parts[1]}</span>
                       </div>
                       <div className="min-w-0">
@@ -222,22 +210,6 @@ export function CelebrationsAndReviews({
                       <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 hidden sm:inline-block">
                         {humanCountdown(item.daysUntil)}
                       </span>
-                      <button
-                        onClick={() => {
-                          const url = getMilestoneWhatsAppUrl(
-                            item.employee.mobile,
-                            item.employeeName,
-                            item.label,
-                            formatDisplayDate(item.date)
-                          );
-                          window.open(url, "_blank");
-                        }}
-                        className="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-600 text-emerald-600 hover:text-white border border-emerald-200 transition shadow-sm"
-                        title={`Send WhatsApp review invitation to ${item.employeeName}`}
-                        aria-label={`WhatsApp ${item.employeeName}`}
-                      >
-                        <MessageCircle className="w-4 h-4" />
-                      </button>
                       <button
                         onClick={() =>
                           onOpenRecordMeeting({

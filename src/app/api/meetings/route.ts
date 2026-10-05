@@ -3,6 +3,8 @@ import { getAllMeetings, addMeetingRecord, getEmployeeByKey } from "@/lib/store"
 import { MeetingRecord } from "@/types";
 import { uploadHrAttachment } from "@/lib/google-drive";
 
+import { errorStatus } from "@/lib/validate";
+
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
@@ -23,7 +25,7 @@ export async function GET(req: NextRequest) {
   } catch (error: any) {
     return NextResponse.json(
       { success: false, error: error?.message || "Failed to fetch meetings" },
-      { status: 500 }
+      { status: errorStatus(error) }
     );
   }
 }
@@ -82,7 +84,7 @@ export async function POST(req: NextRequest) {
   } catch (error: any) {
     return NextResponse.json(
       { success: false, error: error?.message || "Failed to save meeting" },
-      { status: 500 }
+      { status: errorStatus(error) }
     );
   }
 }
@@ -117,7 +119,7 @@ export async function PATCH(req: NextRequest) {
   } catch (error: any) {
     return NextResponse.json(
       { success: false, error: error?.message || "Failed to update meeting status" },
-      { status: 500 }
+      { status: errorStatus(error) }
     );
   }
 }

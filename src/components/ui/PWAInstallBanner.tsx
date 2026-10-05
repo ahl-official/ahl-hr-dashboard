@@ -2,8 +2,10 @@
 
 import React, { useEffect, useState } from "react";
 import { Download, Sparkles, X } from "lucide-react";
+import { usePathname } from "next/navigation";
 
 export function PWAInstallBanner() {
+  const pathname = usePathname();
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showBanner, setShowBanner] = useState(false);
 
@@ -39,7 +41,8 @@ export function PWAInstallBanner() {
     setDeferredPrompt(null);
   };
 
-  if (!showBanner) return null;
+  // The install prompt is for HR staff only, never for joiners filling in their form
+  if (!showBanner || pathname.startsWith("/join") || pathname.startsWith("/onboarding")) return null;
 
   return (
     <div className="bg-indigo-900 text-white px-4 py-2.5 flex items-center justify-between shadow-md text-xs sm:text-sm">

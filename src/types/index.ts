@@ -16,6 +16,7 @@ export type DocumentType =
   | "Meeting Attachment"
   | "Exit"
   | "Relieving Letter"
+  | "Onboarding Form"
   | "Other";
 
 export interface MasterField {

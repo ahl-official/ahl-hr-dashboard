@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   UserPlus,
   ArrowRight,
@@ -18,23 +18,41 @@ import {
 } from "lucide-react";
 import { CANONICAL_DEPARTMENTS, COMPANIES, GENDERS, DIETARY_PREFERENCES, VEHICLE_OWNERSHIPS, HOUSING_STATUSES } from "@/lib/constants";
 import { getTodayLocalIsoDate } from "@/lib/date-utils";
+import { validateOnboardingStep } from "@/lib/validate";
+import { SignaturePad } from "./SignaturePad";
 import { EmployeeSummary } from "@/types";
 
+const SENSITIVE_FIELDS = ["aadhar", "pan", "accountNumber", "ifsc", "lastSalary", "signature"];
+
+// Fields HR sets on the invitation; the joiner sees them but cannot change them (the server enforces this too).
+const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
+const LOCKED_FIELDS = ["company", "department", "designation", "manager", "doj"];
+
+export type JoinerPrefill = { name: string; mobile: string; company: string; department: string; designation: string; manager: string; doj: string };
+
 interface AddEmployeeWizardProps {
-  onEmployeeCreated: (newEmp: EmployeeSummary) => void;
-  onCancel: () => void;
+  /** What HR filled in on the invitation. */
+  prefill: JoinerPrefill;
+  /** Where the finished form is posted (the personal link of the joiner). */
+  submitUrl: string;
+  /** Called after the form was accepted. */
+  onSubmitted: () => void;
 }
 
-export function AddEmployeeWizard({ onEmployeeCreated, onCancel }: AddEmployeeWizardProps) {
+export function AddEmployeeWizard({ prefill, submitUrl, onSubmitted }: AddEmployeeWizardProps) {
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submittedEmployee, setSubmittedEmployee] = useState<EmployeeSummary | null>(null);
+  const [stepError, setStepError] = useState<string | null>(null);
+  const [signatureImage, setSignatureImage] = useState<string | null>(null);
+  const [draftRestored, setDraftRestored] = useState(false);
+  const [done, setDone] = useState(false);
+  const DRAFT_KEY = `ahl-onboarding-draft-v2:${submitUrl}`;
+  const isLocked = (field: string) => LOCKED_FIELDS.includes(field);
 
   // Form State matching all Master Sheet columns
   const [formData, setFormData] = useState({
     // Step 1: Employment
     fullName: "",
-    employeeId: "",
     company: COMPANIES[0],
     designation: "",
     department: CANONICAL_DEPARTMENTS[0],
@@ -46,7 +64,7 @@ export function AddEmployeeWizard({ onEmployeeCreated, onCancel }: AddEmployeeWi
     // Step 2: Personal & Contact
     dob: "",
     gender: "Male",
-    bloodGroup: "O+",
+    bloodGroup: "",
     aadhar: "",
     pan: "",
     permAddress: "",
@@ -65,7 +83,7 @@ export function AddEmployeeWizard({ onEmployeeCreated, onCancel }: AddEmployeeWi
     branch: "",
     accountNumber: "",
     ifsc: "",
-    currentSalary: "",
+    lastSalary: "",
     incrementYear: "",
     incrementPercent: "",
 
@@ -88,35 +106,51 @@ export function AddEmployeeWizard({ onEmployeeCreated, onCancel }: AddEmployeeWi
   });
 
   const updateField = (field: string, val: string) => {
+    setStepError(null);
     setFormData((prev) => ({ ...prev, [field]: val }));
   };
 
-  // Validation per step
+  // Validation per step (pure rules live in lib/validate.ts and are unit-tested)
   const validateStep = (step: number): boolean => {
-    if (step === 1) {
-      if (!formData.fullName.trim() || !formData.employeeId.trim() || !formData.company || !formData.designation.trim() || !formData.department || !formData.manager.trim() || !formData.doj) {
-        alert("Please complete all required fields in Step 1 (Full Name, Employee ID, Company, Designation, Department, Manager, Date of Joining).");
-        return false;
-      }
-    }
-    if (step === 2) {
-      if (!formData.mobile.trim() || !formData.personalEmail.trim()) {
-        alert("Please provide both Mobile Number and Personal Email.");
-        return false;
-      }
-    }
-    if (step === 5) {
-      if (!formData.signature.trim() || !formData.signDate) {
-        alert("Digital Signature and Signature Date are required.");
-        return false;
-      }
-      if (formData.politicalBackground === "Yes" && !formData.politicalDetails.trim()) {
-        alert("Please specify political affiliation details when selected Yes.");
-        return false;
-      }
-    }
-    return true;
+    const problem = validateOnboardingStep(step, { ...(formData as Record<string, string>), signatureImage: signatureImage ? "yes" : "" });
+    setStepError(problem);
+    return problem === null;
   };
+
+  // Draft autosave. Sensitive fields (ID numbers, bank details, signature) are never stored in the browser.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      if (raw) {
+        const { step, data } = JSON.parse(raw);
+        setFormData((prev) => ({ ...prev, ...data }));
+        if (step) setCurrentStep(step);
+        setDraftRestored(true);
+      }
+    } catch {}
+  }, []);
+  useEffect(() => {
+    if (done) return;
+    const t = setTimeout(() => {
+      try {
+        const data: Record<string, string> = { ...(formData as Record<string, string>) };
+        for (const k of SENSITIVE_FIELDS) delete data[k];
+        localStorage.setItem(DRAFT_KEY, JSON.stringify({ step: currentStep, data }));
+      } catch {}
+    }, 500);
+    return () => clearTimeout(t);
+  }, [formData, currentStep, done]);
+
+  // The details HR entered always win over anything restored from a draft
+  useEffect(() => {
+    setFormData((prev) => ({
+      ...prev,
+      fullName: prev.fullName || prefill.name,
+      mobile: prev.mobile || prefill.mobile,
+      company: prefill.company, department: prefill.department, designation: prefill.designation, manager: prefill.manager, doj: prefill.doj,
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefill.company, prefill.department, prefill.designation, prefill.manager, prefill.doj]);
 
   const nextStep = () => {
     if (validateStep(currentStep)) {
@@ -126,6 +160,7 @@ export function AddEmployeeWizard({ onEmployeeCreated, onCancel }: AddEmployeeWi
   };
 
   const prevStep = () => {
+    setStepError(null);
     setCurrentStep((prev) => Math.max(1, prev - 1));
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -133,151 +168,34 @@ export function AddEmployeeWizard({ onEmployeeCreated, onCancel }: AddEmployeeWi
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateStep(5)) return;
-
     setIsSubmitting(true);
+    setStepError(null);
     try {
-      // Build 47 masterFields array
-      const masterFields = [
-        { label: "Timestamp", value: new Date().toLocaleString("en-IN") },
-        { label: "Full Name", value: formData.fullName },
-        { label: "Employee ID", value: formData.employeeId },
-        { label: "Company", value: formData.company },
-        { label: "Current Designation", value: formData.designation },
-        { label: "Department", value: formData.department },
-        { label: "Reporting Manager", value: formData.manager },
-        { label: "Date of Joining (DOJ)", value: formData.doj },
-        { label: "Total Years of Experience", value: formData.experience },
-        { label: "Company E-mail ID", value: formData.companyEmail },
-        { label: "Date of Birth", value: formData.dob },
-        { label: "Gender", value: formData.gender },
-        { label: "Blood Group", value: formData.bloodGroup },
-        { label: "Aadhar Card Number", value: formData.aadhar },
-        { label: "PAN Number", value: formData.pan },
-        { label: "Permanent Address", value: formData.permAddress },
-        { label: "Current Address", value: formData.currAddress },
-        { label: "Mobile Number", value: formData.mobile },
-        { label: "Personal E-mail ID", value: formData.personalEmail },
-        { label: "Father’s Name", value: formData.fatherName },
-        { label: "Mother’s Name", value: formData.motherName },
-        { label: "Emergency Contact Name", value: formData.emergencyName },
-        { label: "Relationship", value: formData.emergencyRel },
-        { label: "Emergency Contact Number", value: formData.emergencyNumber },
-        { label: "Number of Siblings", value: formData.siblings },
-        { label: "Bank Name", value: formData.bankName },
-        { label: "Branch", value: formData.branch },
-        { label: "Account Number", value: formData.accountNumber },
-        { label: "IFSC Code", value: formData.ifsc },
-        { label: "Current Salary", value: formData.currentSalary },
-        { label: "Last Increment Year", value: formData.incrementYear },
-        { label: "Increment Percentage", value: formData.incrementPercent },
-        { label: "Short-term Goals", value: formData.shortTerm },
-        { label: "Core Strengths", value: formData.strengths },
-        { label: "Resource Requirements", value: formData.resources },
-        { label: "Alignment with Company Vision", value: formData.alignment },
-        { label: "Primary Hobbies", value: formData.hobbies },
-        { label: "Company Assets", value: formData.assets },
-        { label: "Dietary Preference", value: formData.dietaryPreference },
-        { label: "Political Background", value: formData.politicalBackground },
-        { label: "Political Details", value: formData.politicalDetails },
-        { label: "Vehicle Ownership", value: formData.vehicleOwnership },
-        { label: "Housing Status", value: formData.housingStatus },
-        { label: "Digital Signature", value: formData.signature },
-        { label: "Date", value: formData.signDate },
-        { label: "PDF Link", value: "#" },
-      ];
-
-      const res = await fetch("/api/employees", {
+      const res = await fetch(submitUrl, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Idempotency-Key": `EMP-IDEM-${Date.now()}`,
-        },
-        body: JSON.stringify({
-          fullName: formData.fullName,
-          employeeId: formData.employeeId,
-          company: formData.company,
-          designation: formData.designation,
-          department: formData.department,
-          manager: formData.manager,
-          doj: formData.doj,
-          dob: formData.dob,
-          gender: formData.gender,
-          mobile: formData.mobile,
-          companyEmail: formData.companyEmail,
-          personalEmail: formData.personalEmail,
-          lastIncrementYear: formData.incrementYear,
-          masterFields,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ form: formData, signatureImage }),
       });
-
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error || "Submission failed");
-
-      setSubmittedEmployee(data.data);
-      onEmployeeCreated(data.data);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) throw new Error(data.error || "Submission failed");
+      try { localStorage.removeItem(DRAFT_KEY); } catch {}
+      setDone(true);
+      onSubmitted();
     } catch (err: any) {
-      alert("Error saving employee: " + (err?.message || "Unknown error"));
+      setStepError(err?.message || "Could not submit. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Client-side PDF print / snapshot helper
-  const handlePrintPdf = () => {
-    window.print();
-  };
-
-  if (submittedEmployee) {
+  if (done) {
     return (
-      <div className="bg-surface rounded-card p-6 sm:p-10 border border-borderline shadow-card text-center max-w-xl mx-auto my-8">
+      <div className="bg-surface rounded-card p-8 sm:p-12 border border-borderline text-center max-w-xl mx-auto my-8">
         <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-4">
           <CheckCircle2 className="w-9 h-9" />
         </div>
-        <h2 className="text-2xl font-black text-navy-DEFAULT mb-1">
-          Employee Onboarded Successfully
-        </h2>
-        <p className="text-sm text-muted mb-6">
-          Record appended to Master Database with stable employee key.
-        </p>
-
-        <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-left text-xs space-y-2 mb-6 font-medium">
-          <div className="flex justify-between">
-            <span className="text-slate-500">Employee Key:</span>
-            <span className="font-mono font-bold text-indigo-700">{submittedEmployee.employeeKey}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-slate-500">Full Name:</span>
-            <span className="font-bold text-navy-DEFAULT">{submittedEmployee.fullName}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-slate-500">Employee ID:</span>
-            <span className="font-bold text-navy-DEFAULT">{submittedEmployee.employeeId}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-slate-500">Department:</span>
-            <span className="font-bold text-navy-DEFAULT">{submittedEmployee.department}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-slate-500">Company:</span>
-            <span className="font-bold text-navy-DEFAULT">{submittedEmployee.company}</span>
-          </div>
-        </div>
-
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-          <button
-            onClick={handlePrintPdf}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-borderline font-bold text-xs sm:text-sm text-slate-700 hover:bg-slate-50 transition"
-          >
-            <FileDown className="w-4 h-4 text-indigo-600" />
-            <span>Print / Save PDF</span>
-          </button>
-          <button
-            onClick={onCancel}
-            className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs sm:text-sm transition shadow-sm"
-          >
-            Return to Dashboard
-          </button>
-        </div>
+        <h2 className="text-2xl font-semibold text-navy-DEFAULT mb-2">Thank you!</h2>
+        <p className="text-sm text-muted">Your details have been submitted. HR will take it from here. You can close this page now.</p>
       </div>
     );
   }
@@ -292,26 +210,18 @@ export function AddEmployeeWizard({ onEmployeeCreated, onCancel }: AddEmployeeWi
 
   return (
     <div className="bg-surface rounded-card p-5 sm:p-8 border border-borderline shadow-card max-w-4xl mx-auto my-6">
-      {/* Wizard Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 mb-6 border-b border-borderline">
-        <div>
-          <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-600 block mb-0.5">
-            New Joiner Onboarding
-          </span>
-          <h2 className="text-xl sm:text-2xl font-black text-navy-DEFAULT tracking-tight">
-            Employee Master Database & Alignment Form
-          </h2>
-          <p className="text-xs text-muted mt-0.5">
-            5-step official HR onboarding compliance & profile creation wizard.
-          </p>
-        </div>
-        <button
-          onClick={onCancel}
-          className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-borderline text-slate-600 hover:bg-slate-50 self-start sm:self-center"
-        >
-          Cancel
-        </button>
+      {/* Welcome */}
+      <div className="pb-5 mb-6 border-b border-borderline">
+        <h2 className="text-xl sm:text-2xl font-semibold text-navy-DEFAULT tracking-tight">Welcome{prefill.name ? `, ${prefill.name.split(" ")[0]}` : ""}</h2>
+        <p className="text-sm text-muted mt-1">Please fill in your joining details. It takes about 10 minutes and your progress is saved on this device.</p>
       </div>
+
+      {draftRestored && (
+        <p className="mb-4 text-xs text-slate-600 bg-slate-50 border border-borderline rounded-md px-3 py-2 flex items-center justify-between gap-3">
+          <span>Continuing your saved draft. ID numbers, bank details and signature are never saved in the browser, so re-enter those.</span>
+          <button type="button" onClick={() => { try { localStorage.removeItem(DRAFT_KEY); } catch {} window.location.reload(); }} className="font-medium text-indigo-700 hover:underline shrink-0">Start over</button>
+        </p>
+      )}
 
       {/* Steps Progress Tracker */}
       <div className="grid grid-cols-5 gap-2 mb-8 select-none">
@@ -373,24 +283,11 @@ export function AddEmployeeWizard({ onEmployeeCreated, onCancel }: AddEmployeeWi
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  Employee ID *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.employeeId}
-                  onChange={(e) => updateField("employeeId", e.target.value)}
-                  placeholder="e.g. AHL-1025"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-indigo-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
                   Company *
                 </label>
                 <select
                   value={formData.company}
+                  disabled={isLocked("company")}
                   onChange={(e) => updateField("company", e.target.value)}
                   required
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-indigo-500"
@@ -411,6 +308,7 @@ export function AddEmployeeWizard({ onEmployeeCreated, onCancel }: AddEmployeeWi
                   type="text"
                   required
                   value={formData.designation}
+                  disabled={isLocked("designation")}
                   onChange={(e) => updateField("designation", e.target.value)}
                   placeholder="e.g. Senior Hair Technician"
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-indigo-500"
@@ -419,10 +317,11 @@ export function AddEmployeeWizard({ onEmployeeCreated, onCancel }: AddEmployeeWi
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  Department * (Canonical 24)
+                  Department *
                 </label>
                 <select
                   value={formData.department}
+                  disabled={isLocked("department")}
                   onChange={(e) => updateField("department", e.target.value)}
                   required
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-indigo-500"
@@ -443,6 +342,7 @@ export function AddEmployeeWizard({ onEmployeeCreated, onCancel }: AddEmployeeWi
                   type="text"
                   required
                   value={formData.manager}
+                  disabled={isLocked("manager")}
                   onChange={(e) => updateField("manager", e.target.value)}
                   placeholder="e.g. Aarav Sharma"
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-indigo-500"
@@ -457,6 +357,7 @@ export function AddEmployeeWizard({ onEmployeeCreated, onCancel }: AddEmployeeWi
                   type="date"
                   required
                   value={formData.doj}
+                  disabled={isLocked("doj")}
                   onChange={(e) => updateField("doj", e.target.value)}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-indigo-500"
                 />
@@ -502,7 +403,7 @@ export function AddEmployeeWizard({ onEmployeeCreated, onCancel }: AddEmployeeWi
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  Date of Birth
+                  Date of Birth *
                 </label>
                 <input
                   type="date"
@@ -533,13 +434,16 @@ export function AddEmployeeWizard({ onEmployeeCreated, onCancel }: AddEmployeeWi
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
                   Blood Group
                 </label>
-                <input
-                  type="text"
+                <select
                   value={formData.bloodGroup}
                   onChange={(e) => updateField("bloodGroup", e.target.value)}
-                  placeholder="e.g. O+, B+"
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-indigo-500"
-                />
+                >
+                  <option value="">Select blood group</option>
+                  {BLOOD_GROUPS.map((g) => (
+                    <option key={g} value={g}>{g}</option>
+                  ))}
+                </select>
               </div>
             </div>
 
@@ -728,26 +632,13 @@ export function AddEmployeeWizard({ onEmployeeCreated, onCancel }: AddEmployeeWi
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  Current Salary (Per Month)
+                  Last Drawn Salary (Per Month)
                 </label>
                 <input
                   type="text"
-                  value={formData.currentSalary}
-                  onChange={(e) => updateField("currentSalary", e.target.value)}
-                  placeholder="₹ 60,000 / month"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-indigo-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  Last Increment Year
-                </label>
-                <input
-                  type="text"
-                  value={formData.incrementYear}
-                  onChange={(e) => updateField("incrementYear", e.target.value)}
-                  placeholder="e.g. 2025"
+                  value={formData.lastSalary}
+                  onChange={(e) => updateField("lastSalary", e.target.value)}
+                  placeholder="At your previous company. Leave blank if this is your first job"
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-indigo-500"
                 />
               </div>
@@ -936,17 +827,24 @@ export function AddEmployeeWizard({ onEmployeeCreated, onCancel }: AddEmployeeWi
 
             {/* Digital Signature & Date */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Signature *
+                </label>
+                <SignaturePad onChange={(v) => { setStepError(null); setSignatureImage(v); }} />
+              </div>
+
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  Digital Signature (Type Full Name) *
+                  Full Name (under signature) *
                 </label>
                 <input
                   type="text"
                   required
                   value={formData.signature}
                   onChange={(e) => updateField("signature", e.target.value)}
-                  placeholder="e.g. Rahul Sharma"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-bold font-serif focus:bg-white focus:border-indigo-500"
+                  placeholder="Type your full name"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-indigo-500"
                 />
               </div>
 
@@ -964,6 +862,12 @@ export function AddEmployeeWizard({ onEmployeeCreated, onCancel }: AddEmployeeWi
               </div>
             </div>
           </div>
+        )}
+
+        {stepError && (
+          <p role="alert" className="mt-6 text-sm font-medium text-rose-700 bg-rose-50 border border-rose-200 rounded-md px-3 py-2">
+            {stepError}
+          </p>
         )}
 
         {/* Wizard Navigation Footer */}

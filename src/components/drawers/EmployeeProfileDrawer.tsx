@@ -17,12 +17,10 @@ import {
   Clock,
   ExternalLink,
   AlertTriangle,
-  MessageCircle,
 } from "lucide-react";
 import { EmployeeSummary, DocumentRecord, MeetingRecord } from "@/types";
 import { initials, formatExactTenure, formatDisplayDate, getTodayLocalIsoDate } from "@/lib/date-utils";
 import { SENSITIVE_FIELDS_HR_MASK } from "@/lib/constants";
-import { getCheckInWhatsAppUrl } from "@/lib/whatsapp";
 
 interface EmployeeProfileDrawerProps {
   employee: EmployeeSummary | null;
@@ -111,22 +109,17 @@ export function EmployeeProfileDrawer({
 
   const isLeft = employee.employmentStatus === "Left";
 
-  const handleWhatsApp = () => {
-    const url = getCheckInWhatsAppUrl(employee.mobile, employee.fullName);
-    window.open(url, "_blank");
-  };
-
   return (
     <div className="fixed inset-0 z-50 overflow-hidden flex justify-end" role="dialog" aria-modal="true">
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-navy-900/60 backdrop-blur-sm transition-opacity"
+        className="fixed inset-0 bg-navy-900/60 transition-opacity"
         onClick={onClose}
         aria-hidden="true"
       />
 
       {/* Drawer Container */}
-      <div className="relative w-full max-w-2xl bg-surface h-full shadow-2xl flex flex-col z-10 overflow-hidden border-l border-borderline">
+      <div className="relative w-full max-w-2xl bg-surface h-full shadow-md flex flex-col z-10 overflow-hidden border-l border-borderline">
         {/* Header Bar */}
         <div className="p-4 sm:px-6 border-b border-borderline flex items-center justify-between bg-slate-50/80 shrink-0">
           <div className="flex items-center gap-2">
@@ -166,10 +159,10 @@ export function EmployeeProfileDrawer({
         {/* Scrollable Body */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
           {/* Hero Profile Header */}
-          <div className="p-5 rounded-2xl bg-gradient-to-br from-navy-800 to-navy-900 text-white shadow-lg">
+          <div className="p-5 rounded-2xl bg-gradient-to-br from-navy-800 to-navy-900 text-white shadow-md">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-500 to-indigo-300 flex items-center justify-center text-white font-extrabold text-xl shadow-md shrink-0">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-500 to-indigo-300 flex items-center justify-center text-white font-semibold text-xl shadow-md shrink-0">
                   {initials(employee.fullName)}
                 </div>
                 <div>
@@ -185,7 +178,7 @@ export function EmployeeProfileDrawer({
 
               <div className="sm:text-right shrink-0 flex sm:flex-col items-center sm:items-end justify-between gap-2">
                 <span
-                  className={`text-xs font-extrabold px-3 py-1 rounded-full ${
+                  className={`text-xs font-semibold px-3 py-1 rounded-full ${
                     isLeft
                       ? "bg-rose-500/20 text-rose-300 border border-rose-500/30"
                       : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
@@ -202,18 +195,11 @@ export function EmployeeProfileDrawer({
               </div>
             </div>
 
-            {/* Direct WhatsApp Callout in Hero */}
+            {/* Phone number */}
             <div className="mt-4 pt-3 border-t border-slate-700/60 flex items-center justify-between">
               <span className="text-xs text-slate-300 font-mono">
                 📱 {employee.mobile || "No phone listed"}
               </span>
-              <button
-                onClick={handleWhatsApp}
-                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition shadow-sm"
-              >
-                <MessageCircle className="w-3.5 h-3.5" />
-                <span>Chat on WhatsApp</span>
-              </button>
             </div>
           </div>
 
@@ -225,7 +211,7 @@ export function EmployeeProfileDrawer({
                   <div className="p-1 rounded-lg bg-rose-600 text-white">
                     <AlertTriangle className="w-4 h-4" />
                   </div>
-                  <span className="text-xs font-extrabold uppercase tracking-wider text-rose-900">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-rose-900">
                     Active HR Red Flag / Behavioral Concern
                   </span>
                 </div>
@@ -262,7 +248,7 @@ export function EmployeeProfileDrawer({
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <Clock className="w-4 h-4 text-amber-600" />
-                  <span className="text-xs font-extrabold uppercase tracking-wider text-amber-900">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-amber-900">
                     Pending Follow-Up Action ({pendingActions.length})
                   </span>
                 </div>

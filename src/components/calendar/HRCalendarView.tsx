@@ -29,9 +29,6 @@ import {
 } from "@/lib/date-utils";
 import {
   getActionFollowUpWhatsAppUrl,
-  getMilestoneWhatsAppUrl,
-  getBirthdayWhatsAppUrl,
-  getCheckInWhatsAppUrl,
 } from "@/lib/whatsapp";
 
 export type CalendarEventType = "review" | "meeting" | "followup" | "warning" | "birthday";
@@ -191,7 +188,7 @@ export function HRCalendarView({
                 chip: "bg-rose-100 text-rose-950 border-rose-300 hover:bg-rose-200 font-bold",
                 dot: "bg-rose-600",
                 border: "border-l-4 border-l-rose-600",
-                badge: "bg-rose-200 text-rose-900 font-extrabold",
+                badge: "bg-rose-200 text-rose-900 font-semibold",
               }
             : {
                 chip: "bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100",
@@ -350,7 +347,7 @@ export function HRCalendarView({
           <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-600 block mb-0.5">
             Interactive Timeline
           </span>
-          <h2 className="text-xl sm:text-2xl font-extrabold text-navy-DEFAULT tracking-tight flex items-center gap-2.5">
+          <h2 className="text-xl sm:text-2xl font-semibold text-navy-DEFAULT tracking-tight flex items-center gap-2.5">
             <span>HR Calendar & Schedule</span>
             <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
               Live Agenda
@@ -496,7 +493,7 @@ export function HRCalendarView({
                           day.isToday
                             ? "bg-indigo-600 text-white shadow-xs"
                             : isSelected
-                            ? "bg-indigo-100 text-indigo-900 font-extrabold"
+                            ? "bg-indigo-100 text-indigo-900 font-semibold"
                             : day.isCurrentMonth
                             ? "text-slate-700 group-hover:bg-slate-200"
                             : "text-slate-400"
@@ -612,7 +609,7 @@ export function HRCalendarView({
                       >
                         <div>
                           <div className="flex items-center justify-between gap-2 mb-1">
-                            <span className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full ${ev.colorClass.badge}`}>
+                            <span className={`text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full ${ev.colorClass.badge}`}>
                               {ev.badgeLabel}
                             </span>
                             <span className="text-[11px] text-muted font-medium">{ev.dateStr}</span>
@@ -668,7 +665,7 @@ export function HRCalendarView({
                   className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/80 px-3 rounded-xl transition cursor-pointer"
                 >
                   <div className="flex items-start sm:items-center gap-3 min-w-0">
-                    <div className="w-12 h-12 rounded-xl bg-slate-100 font-extrabold text-xs flex flex-col items-center justify-center shrink-0 border border-slate-200">
+                    <div className="w-12 h-12 rounded-xl bg-slate-100 font-semibold text-xs flex flex-col items-center justify-center shrink-0 border border-slate-200">
                       <span className="text-sm leading-tight text-navy-DEFAULT">
                         {ev.dateStr.slice(8, 10)}
                       </span>
@@ -716,13 +713,13 @@ export function HRCalendarView({
       {inspectedEvent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
-            className="fixed inset-0 bg-navy-900/60 backdrop-blur-sm"
+            className="fixed inset-0 bg-navy-900/60"
             onClick={() => setInspectedEvent(null)}
           />
 
-          <div className="relative bg-surface rounded-2xl max-w-md w-full p-6 shadow-2xl border border-borderline z-10">
+          <div className="relative bg-surface rounded-2xl max-w-md w-full p-6 shadow-md border border-borderline z-10">
             <div className="flex items-center justify-between pb-3 mb-4 border-b border-borderline">
-              <span className={`text-xs font-extrabold uppercase px-2.5 py-0.5 rounded-full ${inspectedEvent.colorClass.badge}`}>
+              <span className={`text-xs font-semibold uppercase px-2.5 py-0.5 rounded-full ${inspectedEvent.colorClass.badge}`}>
                 {inspectedEvent.badgeLabel}
               </span>
               <button
@@ -735,7 +732,7 @@ export function HRCalendarView({
 
             <div className="space-y-3 mb-6">
               <div>
-                <h3 className="text-base font-extrabold text-navy-DEFAULT">
+                <h3 className="text-base font-semibold text-navy-DEFAULT">
                   {inspectedEvent.title}
                 </h3>
                 <p className="text-xs text-muted">{inspectedEvent.subtitle}</p>
@@ -785,21 +782,12 @@ export function HRCalendarView({
 
             {/* Modal Actions */}
             <div className="flex items-center justify-end gap-2">
-              {inspectedEvent.rawEmployee && (
+              {inspectedEvent.rawEmployee && inspectedEvent.rawMeeting && (
                 <button
                   onClick={() => {
                     const emp = inspectedEvent.rawEmployee!;
                     let url = "";
-                    if (inspectedEvent.type === "birthday") {
-                      url = getBirthdayWhatsAppUrl(emp.mobile, emp.fullName);
-                    } else if (inspectedEvent.type === "review") {
-                      url = getMilestoneWhatsAppUrl(
-                        emp.mobile,
-                        emp.fullName,
-                        inspectedEvent.badgeLabel,
-                        formatDisplayDate(inspectedEvent.dateStr)
-                      );
-                    } else if (inspectedEvent.rawMeeting) {
+                    if (inspectedEvent.rawMeeting) {
                       const todayStr = getTodayLocalIsoDate();
                       const isOverdue =
                         inspectedEvent.rawMeeting.nextFollowUpDate &&
@@ -813,10 +801,8 @@ export function HRCalendarView({
                         formatDisplayDate(inspectedEvent.dateStr),
                         Boolean(isOverdue)
                       );
-                    } else {
-                      url = getCheckInWhatsAppUrl(emp.mobile, emp.fullName);
                     }
-                    window.open(url, "_blank");
+                    if (url) window.open(url, "_blank");
                   }}
                   className="px-3 py-2 rounded-xl text-xs font-bold bg-emerald-50 hover:bg-emerald-600 text-emerald-700 hover:text-white border border-emerald-300 transition flex items-center gap-1.5 shadow-sm"
                   title="Send WhatsApp Follow-up / Greeting"

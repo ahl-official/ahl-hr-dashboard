@@ -51,6 +51,22 @@ export async function clearValues(range: string) {
   return googleRequest<any>(url, { method: "POST", body: "{}" });
 }
 
+/** Creates a tab with a header row when it does not exist yet. */
+export async function ensureSheet(title: string, headers: string[]) {
+  const meta = await getSpreadsheetMetadata();
+  if ((meta.sheets || []).some((s: any) => s.properties?.title === title)) return;
+  try {
+    await googleRequest<any>(`${SHEETS_BASE}/${databaseId()}:batchUpdate`, {
+      method: "POST",
+      body: JSON.stringify({ requests: [{ addSheet: { properties: { title } } }] }),
+    });
+  } catch (e: any) {
+    if (!/already exists/i.test(String(e?.message))) throw e; // created by a concurrent request
+    return;
+  }
+  await updateValues(`${title}!A1`, [headers]);
+}
+
 export function serialToIsoDate(value: unknown) {
   if (typeof value !== "number" || !Number.isFinite(value)) return String(value ?? "").trim();
   const date = new Date(Date.UTC(1899, 11, 30) + Math.floor(value) * 86400000);

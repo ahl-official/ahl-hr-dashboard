@@ -177,7 +177,7 @@ export function WorkforceInsights({ employees }: WorkforceInsightsProps) {
           label: "New Joinees",
           data: Object.values(counts),
           borderColor: CHART_COLORS.indigo,
-          backgroundColor: "rgba(79, 70, 229, 0.12)",
+          backgroundColor: "rgba(19, 101, 115, 0.10)",
           fill: true,
           tension: 0.35,
           pointRadius: 4,
@@ -238,7 +238,7 @@ export function WorkforceInsights({ employees }: WorkforceInsightsProps) {
           <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-600 block mb-0.5">
             Workforce Demographics
           </span>
-          <h2 className="text-xl sm:text-2xl font-extrabold text-navy-DEFAULT tracking-tight">
+          <h2 className="text-xl sm:text-2xl font-semibold text-navy-DEFAULT tracking-tight">
             Workforce Insights
           </h2>
           <p className="text-xs sm:text-sm text-muted">

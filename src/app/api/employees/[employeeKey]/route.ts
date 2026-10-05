@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getEmployeeByKey } from "@/lib/store";
 
+import { errorStatus } from "@/lib/validate";
+
 export const dynamic = "force-dynamic";
 
 export async function GET(
@@ -20,7 +22,7 @@ export async function GET(
   } catch (error: any) {
     return NextResponse.json(
       { success: false, error: error?.message || "Internal server error" },
-      { status: 500 }
+      { status: errorStatus(error) }
     );
   }
 }

@@ -9,13 +9,11 @@ import {
   Mail,
   Phone,
   AlertTriangle,
-  MessageCircle,
   Clock,
   ShieldAlert,
 } from "lucide-react";
 import { EmployeeSummary, MeetingRecord } from "@/types";
 import { initials, formatTenure, formatDisplayDate, getTodayLocalIsoDate } from "@/lib/date-utils";
-import { getCheckInWhatsAppUrl } from "@/lib/whatsapp";
 
 interface EmployeeDirectoryProps {
   employees: EmployeeSummary[];
@@ -89,23 +87,14 @@ export function EmployeeDirectory({
     }
   };
 
-  const handleWhatsAppChat = (e: React.MouseEvent, emp: EmployeeSummary) => {
-    e.stopPropagation();
-    const url = getCheckInWhatsAppUrl(emp.mobile, emp.fullName);
-    window.open(url, "_blank");
-  };
-
   const redFlagTotalCount = Array.from(redFlagsMap.keys()).length;
   const actionPendingTotalCount = Array.from(actionItemsMap.keys()).length;
 
   return (
-    <section id="directory" className="mb-12 scroll-mt-24">
+    <section id="directory" className="mb-12 scroll-mt-44">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
         <div>
-          <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-600 block mb-0.5">
-            Personnel Directory
-          </span>
-          <h2 className="text-xl sm:text-2xl font-extrabold text-navy-DEFAULT tracking-tight">
+          <h2 className="text-lg sm:text-xl font-semibold text-navy-DEFAULT tracking-tight">
             Employee Directory
           </h2>
           <p className="text-xs sm:text-sm text-muted">
@@ -120,9 +109,9 @@ export function EmployeeDirectory({
               setDirectoryFilter("all");
               setCurrentPage(1);
             }}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition flex items-center gap-1.5 ${
               directoryFilter === "all"
-                ? "bg-slate-800 text-white shadow-sm"
+                ? "bg-navy-800 text-white"
                 : "bg-slate-100 text-slate-700 hover:bg-slate-200"
             }`}
           >
@@ -135,14 +124,14 @@ export function EmployeeDirectory({
               setDirectoryFilter("red_flags");
               setCurrentPage(1);
             }}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition flex items-center gap-1.5 ${
               directoryFilter === "red_flags"
-                ? "bg-rose-600 text-white shadow-sm"
+                ? "bg-rose-700 text-white"
                 : "bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100"
             }`}
           >
             <AlertTriangle className="w-3.5 h-3.5 text-inherit" />
-            <span>🚩 Red Flags ({redFlagTotalCount})</span>
+            <span>Red flags ({redFlagTotalCount})</span>
           </button>
 
           <button
@@ -150,9 +139,9 @@ export function EmployeeDirectory({
               setDirectoryFilter("action_pending");
               setCurrentPage(1);
             }}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition flex items-center gap-1.5 ${
               directoryFilter === "action_pending"
-                ? "bg-amber-600 text-white shadow-sm"
+                ? "bg-amber-700 text-white"
                 : "bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100"
             }`}
           >
@@ -166,15 +155,15 @@ export function EmployeeDirectory({
         {/* Desktop View: Responsive Table */}
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left text-xs sm:text-sm border-collapse">
-            <thead className="bg-slate-50 border-b border-borderline text-[11px] font-bold uppercase tracking-wider text-muted sticky top-0 z-10">
+            <thead className="bg-slate-50 border-b border-borderline text-xs font-medium text-muted sticky top-0 z-10">
               <tr>
-                <th className="py-3.5 px-4 pl-6">Employee</th>
-                <th className="py-3.5 px-4">Employee ID</th>
-                <th className="py-3.5 px-4">Company</th>
-                <th className="py-3.5 px-4">Department</th>
-                <th className="py-3.5 px-4">Designation</th>
-                <th className="py-3.5 px-4">Tenure / Alerts</th>
-                <th className="py-3.5 px-4 pr-6 text-right">Actions</th>
+                <th className="py-2.5 px-4 pl-6 font-medium">Employee</th>
+                <th className="py-2.5 px-4 font-medium whitespace-nowrap">Employee ID</th>
+                <th className="py-2.5 px-4 font-medium whitespace-nowrap">Company</th>
+                <th className="py-2.5 px-4 font-medium whitespace-nowrap">Department</th>
+                <th className="py-2.5 px-4 font-medium whitespace-nowrap">Designation</th>
+                <th className="py-2.5 px-4 font-medium whitespace-nowrap">Tenure</th>
+                <th className="py-2.5 px-4 pr-6 text-right font-medium">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-borderline">
@@ -199,30 +188,30 @@ export function EmployeeDirectory({
                       className="hover:bg-slate-50/80 transition duration-150 group"
                     >
                       {/* Employee avatar + name + email */}
-                      <td className="py-3.5 px-4 pl-6">
+                      <td className="py-2.5 px-4 pl-6">
                         <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-indigo-400 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-sm">
+                          <div className="w-8 h-8 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100 font-semibold text-xs flex items-center justify-center shrink-0">
                             {initials(emp.fullName)}
                           </div>
                           <div className="min-w-0">
                             <div className="flex items-center gap-2">
-                              <span className="font-bold text-navy-DEFAULT block truncate">
+                              <span className="font-medium text-navy-DEFAULT block truncate">
                                 {emp.fullName}
                               </span>
                               {activeWarning && (
                                 <span
-                                  className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-rose-100 text-rose-800 border border-rose-300 flex items-center gap-1 shrink-0"
+                                  className="text-[11px] font-medium px-1.5 py-0.5 rounded bg-rose-50 text-rose-700 border border-rose-200 shrink-0"
                                   title={`Red Flag: ${activeWarning.discussionNotes}`}
                                 >
-                                  🚩 Red Flag
+                                  Red flag
                                 </span>
                               )}
                               {hasOverdueAction && (
                                 <span
-                                  className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-0.5 shrink-0"
+                                  className="text-[11px] font-medium px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200 shrink-0"
                                   title="Overdue Action Follow-up"
                                 >
-                                  ⏰ Action Due
+                                  Action due
                                 </span>
                               )}
                             </div>
@@ -234,24 +223,24 @@ export function EmployeeDirectory({
                       </td>
 
                       {/* ID */}
-                      <td className="py-3.5 px-4">
-                        <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700">
+                      <td className="py-2.5 px-4">
+                        <span className="font-mono text-xs text-slate-600 whitespace-nowrap">
                           {emp.employeeId || "—"}
                         </span>
                       </td>
 
                       {/* Company */}
-                      <td className="py-3.5 px-4 font-medium text-slate-700">{emp.company}</td>
+                      <td className="py-2.5 px-4 font-medium text-slate-700">{emp.company}</td>
 
                       {/* Department */}
-                      <td className="py-3.5 px-4 font-medium text-slate-700">{emp.department}</td>
+                      <td className="py-2.5 px-4 font-medium text-slate-700">{emp.department}</td>
 
                       {/* Designation */}
-                      <td className="py-3.5 px-4 text-slate-600 font-medium">{emp.designation}</td>
+                      <td className="py-2.5 px-4 text-slate-600 font-medium">{emp.designation}</td>
 
                       {/* Tenure / Alert details */}
-                      <td className="py-3.5 px-4">
-                        <strong className="font-semibold text-navy-DEFAULT block">
+                      <td className="py-2.5 px-4">
+                        <strong className="font-semibold text-navy-DEFAULT block whitespace-nowrap">
                           {formatTenure(emp.doj)}
                         </strong>
                         {activeWarning ? (
@@ -259,29 +248,19 @@ export function EmployeeDirectory({
                             {activeWarning.discussionNotes || "Conduct Warning Recorded"}
                           </span>
                         ) : (
-                          <span className="text-xs text-muted block">
+                          <span className="text-xs text-muted block whitespace-nowrap">
                             {formatDisplayDate(emp.doj)}
                           </span>
                         )}
                       </td>
 
-                      {/* Action Buttons: WhatsApp & Profile */}
-                      <td className="py-3.5 px-4 pr-6 text-right">
+                      {/* Action Buttons: Profile */}
+                      <td className="py-2.5 px-4 pr-6 text-right">
                         <div className="flex items-center justify-end gap-1.5">
-                          {/* 1-Click WhatsApp Direct Chat */}
-                          <button
-                            onClick={(e) => handleWhatsAppChat(e, emp)}
-                            className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-50 hover:bg-emerald-600 text-emerald-600 hover:text-white transition shadow-sm"
-                            title={`Chat with ${emp.fullName} on WhatsApp (${emp.mobile || "no mobile"})`}
-                            aria-label={`WhatsApp ${emp.fullName}`}
-                          >
-                            <MessageCircle className="w-4 h-4" />
-                          </button>
-
                           {/* Profile Button */}
                           <button
                             onClick={() => onSelectEmployee(emp)}
-                            className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-indigo-50 hover:bg-indigo-600 text-indigo-600 hover:text-white transition shadow-sm group-hover:scale-105"
+                            className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-indigo-700 transition"
                             aria-label={`View profile for ${emp.fullName}`}
                             title="View complete profile"
                           >
@@ -316,20 +295,20 @@ export function EmployeeDirectory({
                 <div key={emp.employeeKey} className="p-4 hover:bg-slate-50 transition">
                   <div className="flex items-start justify-between gap-3 mb-2">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white font-bold text-xs flex items-center justify-center shrink-0">
+                      <div className="w-10 h-10 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100 font-semibold text-xs flex items-center justify-center shrink-0">
                         {initials(emp.fullName)}
                       </div>
                       <div>
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <h4 className="font-bold text-sm text-navy-DEFAULT">{emp.fullName}</h4>
                           {activeWarning && (
-                            <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-rose-100 text-rose-800 border border-rose-300">
-                              🚩 Red Flag
+                            <span className="text-[11px] font-medium px-1.5 py-0.5 rounded bg-rose-50 text-rose-700 border border-rose-200">
+                              Red flag
                             </span>
                           )}
                           {hasOverdueAction && (
-                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300">
-                              ⏰ Action Due
+                            <span className="text-[11px] font-medium px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">
+                              Action due
                             </span>
                           )}
                         </div>
@@ -345,7 +324,7 @@ export function EmployeeDirectory({
                   {/* Red flag notice if present */}
                   {activeWarning && (
                     <div className="mb-2.5 p-2 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs">
-                      <strong className="font-bold">🚩 Conduct Note:</strong>{" "}
+                      <strong className="font-semibold">Conduct note:</strong>{" "}
                       {activeWarning.discussionNotes}
                     </div>
                   )}
@@ -370,14 +349,6 @@ export function EmployeeDirectory({
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <button
-                      onClick={(e) => handleWhatsAppChat(e, emp)}
-                      className="py-2.5 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-600 text-emerald-700 hover:text-white font-bold text-xs transition border border-emerald-300 flex items-center justify-center gap-1.5"
-                    >
-                      <MessageCircle className="w-4 h-4" />
-                      <span>WhatsApp</span>
-                    </button>
-
                     <button
                       onClick={() => onSelectEmployee(emp)}
                       className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-indigo-50 hover:bg-indigo-600 text-indigo-700 hover:text-white font-bold text-xs transition"

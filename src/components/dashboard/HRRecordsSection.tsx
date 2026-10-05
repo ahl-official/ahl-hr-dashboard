@@ -29,7 +29,7 @@ export function HRRecordsSection({ meetings, onOpenAddMeeting }: HRRecordsSectio
   const warningCount = useMemo(() => meetings.filter((m) => m.warningGiven === "Yes").length, [meetings]);
   const followUpsDueCount = useMemo(() => {
     return meetings.filter((m) => {
-      if (m.recordStatus === "Cancelled") return false;
+      if (m.recordStatus !== "Open") return false; // finished or cancelled items are not "due"
       const fDate = parseIsoDate(m.nextFollowUpDate);
       if (!fDate) return false;
       const days = daysBetween(today, fDate);
@@ -52,7 +52,7 @@ export function HRRecordsSection({ meetings, onOpenAddMeeting }: HRRecordsSectio
           <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-600 block mb-0.5">
             Operational Documentation
           </span>
-          <h2 className="text-xl sm:text-2xl font-extrabold text-navy-DEFAULT tracking-tight">
+          <h2 className="text-xl sm:text-2xl font-semibold text-navy-DEFAULT tracking-tight">
             HR Records & Meetings
           </h2>
           <p className="text-xs sm:text-sm text-muted">

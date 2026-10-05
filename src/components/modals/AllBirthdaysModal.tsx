@@ -15,10 +15,10 @@ export function AllBirthdaysModal({ isOpen, onClose, birthdays }: AllBirthdaysMo
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
-      <div className="fixed inset-0 bg-navy-900/60 backdrop-blur-sm" onClick={onClose} />
+    <div className="fixed inset-0 z-50 flex justify-center p-4 overflow-y-auto">
+      <div className="fixed inset-0 bg-navy-900/60" onClick={onClose} />
 
-      <div className="relative bg-surface rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-borderline z-10 my-8">
+      <div className="relative bg-surface rounded-2xl max-w-xl w-full p-6 shadow-md border border-borderline z-10 my-auto">
         <div className="flex items-center justify-between pb-4 mb-4 border-b border-borderline">
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-xl bg-rose-50 text-rose-600">
@@ -53,7 +53,7 @@ export function AllBirthdaysModal({ isOpen, onClose, birthdays }: AllBirthdaysMo
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-700 font-bold text-xs flex flex-col items-center justify-center shrink-0 border border-rose-100">
-                      <span className="text-[13px] leading-tight font-extrabold">{parts[0]}</span>
+                      <span className="text-[13px] leading-tight font-semibold">{parts[0]}</span>
                       <span className="text-[10px] leading-tight uppercase font-medium">{parts[1]}</span>
                     </div>
                     <div className="min-w-0">

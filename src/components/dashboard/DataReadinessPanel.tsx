@@ -3,6 +3,7 @@
 import React, { useMemo } from "react";
 import { CheckCircle2, AlertCircle, ShieldAlert } from "lucide-react";
 import { EmployeeSummary, DataQualityMetric } from "@/types";
+import { parseIsoDate } from "@/lib/date-utils";
 
 interface DataReadinessPanelProps {
   employees: EmployeeSummary[];
@@ -10,12 +11,13 @@ interface DataReadinessPanelProps {
 }
 
 export function DataReadinessPanel({ employees, allEmployees }: DataReadinessPanelProps) {
-  // Count frequency of employee IDs across the whole master database
+  // IDs are numbered per company, so a duplicate means the same ID twice inside one company
+  const idKey = (emp: EmployeeSummary) => `${String(emp.company || "").trim().toLowerCase()}|${String(emp.employeeId || "").trim()}`;
   const idCounts = useMemo(() => {
     return allEmployees.reduce((acc: Record<string, number>, emp) => {
       const id = String(emp.employeeId || "").trim();
       if (id && id !== "0") {
-        acc[id] = (acc[id] || 0) + 1;
+        acc[idKey(emp)] = (acc[idKey(emp)] || 0) + 1;
       }
       return acc;
     }, {});
@@ -46,8 +48,11 @@ export function DataReadinessPanel({ employees, allEmployees }: DataReadinessPan
       const complete = employees.filter((emp) => {
         if (field.uniqueCheck) {
           const id = String(emp.employeeId || "").trim();
-          return Boolean(id) && id !== "0" && idCounts[id] === 1;
+          return Boolean(id) && id !== "0" && idCounts[idKey(emp)] === 1;
         }
+        // A date only counts as complete when it parses; "05/10/2026" would silently
+        // break birthdays, reviews and tenure.
+        if (field.key === "doj" || field.key === "dob") return Boolean(parseIsoDate(emp[field.key]));
         return Boolean(emp[field.key as keyof EmployeeSummary]);
       }).length;
 
@@ -92,7 +97,7 @@ export function DataReadinessPanel({ employees, allEmployees }: DataReadinessPan
             <span className="text-xs text-muted">7 Critical Fields</span>
           </div>
           <div
-            className={`w-12 h-12 rounded-xl flex items-center justify-center font-extrabold text-base ${
+            className={`w-12 h-12 rounded-xl flex items-center justify-center font-semibold text-base ${
               overallScore >= 90
                 ? "bg-emerald-100 text-emerald-800"
                 : overallScore >= 75

@@ -1,12 +1,13 @@
-import { EmployeeSummary, BirthdayEvent, ReviewEvent } from "@/types";
+import type { EmployeeSummary, BirthdayEvent, ReviewEvent } from "@/types";
 
 export function parseIsoDate(value: string | undefined | null): Date | null {
   if (!value || typeof value !== "string") return null;
   const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (!match) return null;
-  const parts = value.split("-").map(Number);
-  const date = new Date(parts[0], parts[1] - 1, parts[2], 12, 0, 0, 0);
-  return isNaN(date.getTime()) ? null : date;
+  const [y, m, d] = [Number(match[1]), Number(match[2]), Number(match[3])];
+  const date = new Date(y, m - 1, d, 12, 0, 0, 0);
+  // Reject rolled-over dates such as 2026-02-30 (JS would silently make it Mar 2)
+  return date.getFullYear() === y && date.getMonth() === m - 1 && date.getDate() === d ? date : null;
 }
 
 export function startOfDay(date: Date): Date {
@@ -190,12 +191,20 @@ export function calculateMilestones(
 export function formatTenure(value: string | undefined | null): string {
   const doj = parseIsoDate(value);
   if (!doj) return "DOJ missing";
-  const days = Math.max(0, daysBetween(doj, new Date()));
-  const years = Math.floor(days / 365.2425);
-  const months = Math.floor((days - years * 365.2425) / 30.44);
-  if (years) return `${years}y ${Math.max(0, months)}m`;
-  if (months) return `${months} months`;
-  return `${Math.round(days)} days`;
+  const today = startOfDay(new Date());
+  if (doj > today) return "Not started";
+
+  // Calendar-month arithmetic (same basis as the review schedule), not day-count averages
+  let completedMonths = (today.getFullYear() - doj.getFullYear()) * 12 + today.getMonth() - doj.getMonth();
+  if (today.getDate() < doj.getDate()) completedMonths -= 1;
+  completedMonths = Math.max(0, completedMonths);
+
+  const years = Math.floor(completedMonths / 12);
+  const months = completedMonths % 12;
+  if (years) return `${years}y ${months}m`;
+  if (months) return `${months} ${months === 1 ? "month" : "months"}`;
+  const days = Math.max(0, daysBetween(doj, today));
+  return `${days} ${days === 1 ? "day" : "days"}`;
 }
 
 export function formatExactTenure(value: string | undefined | null): string {

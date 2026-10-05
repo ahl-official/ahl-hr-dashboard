@@ -3,6 +3,8 @@ import { updateEmployeeStatusRecord } from "@/lib/store";
 import { getEmployeeByKey } from "@/lib/store";
 import { uploadHrAttachment } from "@/lib/google-drive";
 
+import { errorStatus } from "@/lib/validate";
+
 export const dynamic = "force-dynamic";
 
 export async function PUT(
@@ -47,7 +49,7 @@ export async function PUT(
   } catch (error: any) {
     return NextResponse.json(
       { success: false, error: error?.message || "Failed to update status" },
-      { status: 500 }
+      { status: errorStatus(error) }
     );
   }
 }

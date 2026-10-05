@@ -1,14 +1,6 @@
 "use client";
 
 import React from "react";
-import {
-  Users,
-  UserPlus,
-  Clock,
-  Briefcase,
-  Cake,
-  CalendarCheck2,
-} from "lucide-react";
 
 interface OverviewKPIsProps {
   totalEmployees: number;
@@ -29,96 +21,24 @@ export function OverviewKPIs({
   birthdayCount,
   milestoneCount,
 }: OverviewKPIsProps) {
-  const cards = [
-    {
-      id: "total",
-      label: "Employee Records",
-      value: totalEmployees,
-      subtext: `Across ${companyCount} ${companyCount === 1 ? "company" : "companies"}`,
-      icon: Users,
-      accentBorder: "border-indigo-500",
-      accentBg: "bg-indigo-50 text-indigo-700",
-      iconColor: "text-indigo-600",
-    },
-    {
-      id: "new",
-      label: "New This Month",
-      value: newThisMonth,
-      subtext: "Joined in current calendar month",
-      icon: UserPlus,
-      accentBorder: "border-emerald-500",
-      accentBg: "bg-emerald-50 text-emerald-700",
-      iconColor: "text-emerald-600",
-    },
-    {
-      id: "tenure",
-      label: "Average Tenure",
-      value: averageTenure,
-      subtext: "DOJ to today for filtered staff",
-      icon: Clock,
-      accentBorder: "border-sky-500",
-      accentBg: "bg-sky-50 text-sky-700",
-      iconColor: "text-sky-600",
-    },
-    {
-      id: "departments",
-      label: "Departments",
-      value: departmentCount,
-      subtext: "Active functional divisions",
-      icon: Briefcase,
-      accentBorder: "border-violet-500",
-      accentBg: "bg-violet-50 text-violet-700",
-      iconColor: "text-violet-600",
-    },
-    {
-      id: "birthdays",
-      label: "Birthdays (30 Days)",
-      value: birthdayCount,
-      subtext: "Celebrations in next 30 days",
-      icon: Cake,
-      accentBorder: "border-rose-500",
-      accentBg: "bg-rose-50 text-rose-700",
-      iconColor: "text-rose-600",
-    },
-    {
-      id: "reviews",
-      label: "Reviews (30 Days)",
-      value: milestoneCount,
-      subtext: "Onboarding & tenure milestones",
-      icon: CalendarCheck2,
-      accentBorder: "border-amber-500",
-      accentBg: "bg-amber-50 text-amber-700",
-      iconColor: "text-amber-600",
-    },
+  const stats = [
+    { id: "total", label: "Employees", value: totalEmployees, note: `${companyCount} ${companyCount === 1 ? "company" : "companies"}` },
+    { id: "new", label: "New this month", value: newThisMonth, note: "Joined this calendar month" },
+    { id: "tenure", label: "Avg. tenure", value: averageTenure, note: "From date of joining" },
+    { id: "departments", label: "Departments", value: departmentCount, note: "In current filter" },
+    { id: "birthdays", label: "Birthdays", value: birthdayCount, note: "Next 30 days" },
+    { id: "reviews", label: "Reviews due", value: milestoneCount, note: "Next 30 days" },
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 mb-8">
-      {cards.map((card) => {
-        const Icon = card.icon;
-        return (
-          <div
-            key={card.id}
-            className={`bg-surface rounded-card p-5 sm:p-6 border border-borderline border-l-4 ${card.accentBorder} shadow-card hover:shadow-cardHover transition duration-200 flex flex-col justify-between`}
-          >
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-bold uppercase tracking-wider text-muted">
-                {card.label}
-              </span>
-              <div className={`p-2.5 rounded-xl ${card.accentBg}`}>
-                <Icon className={`w-5 h-5 ${card.iconColor}`} />
-              </div>
-            </div>
-
-            <div>
-              <div className="text-2xl sm:text-3xl font-extrabold text-navy-DEFAULT tracking-tight mb-1">
-                {card.value}
-              </div>
-              <p className="text-xs text-muted font-medium">{card.subtext}</p>
-            </div>
-          </div>
-        );
-      })}
-    </div>
+    <dl className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-px mb-6 bg-borderline border border-borderline rounded-card overflow-hidden">
+      {stats.map((s) => (
+        <div key={s.id} className="bg-surface px-4 py-4 sm:px-5">
+          <dt className="text-xs font-medium text-muted">{s.label}</dt>
+          <dd className="mt-1 text-2xl font-semibold text-navy-DEFAULT tracking-tight tabular-nums">{s.value}</dd>
+          <p className="mt-0.5 text-[11px] text-slate-400 truncate">{s.note}</p>
+        </div>
+      ))}
+    </dl>
   );
 }
