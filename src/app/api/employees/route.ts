@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAllEmployees, addEmployeeRecord } from "@/lib/store";
+import { getAllEmployees } from "@/lib/store";
 
 import { errorStatus } from "@/lib/validate";
 
@@ -66,33 +66,6 @@ export async function GET(req: NextRequest) {
   } catch (error: any) {
     return NextResponse.json(
       { success: false, error: error?.message || "Failed to fetch employees" },
-      { status: errorStatus(error) }
-    );
-  }
-}
-
-export async function POST(req: NextRequest) {
-  try {
-    const idempotencyKey = req.headers.get("Idempotency-Key");
-    const payload = await req.json();
-
-    if (!payload.fullName || !payload.company || !payload.department) {
-      return NextResponse.json(
-        { success: false, error: "Missing required fields (fullName, company, department)" },
-        { status: 400 }
-      );
-    }
-
-    const newEmp = await addEmployeeRecord(payload);
-
-    return NextResponse.json({
-      success: true,
-      data: newEmp,
-      idempotencyKey,
-    });
-  } catch (error: any) {
-    return NextResponse.json(
-      { success: false, error: error?.message || "Failed to create employee" },
       { status: errorStatus(error) }
     );
   }

@@ -174,16 +174,45 @@ export function ymdFromIso(iso: string): Ymd {
 
 export type Decision = { action: "wait" | "send" | "missed" | "skip"; reason?: string };
 
+/** A "Sending" claim older than this is treated as a crashed attempt and may be retried. */
+export const CLAIM_STALE_MS = 10 * 60_000;
+
+/**
+ * Lines for the HR morning digest: the team meeting is "Tomorrow" the day before and "Today" on the day
+ * (not once it has already started).
+ */
+export function teamMeetingReminders(now: number, s: ReminderSettings, label = "Salon Monthly Staff Meeting"): Array<{ id: string; when: "tomorrow" | "today"; text: string }> {
+  const p = istParts(now);
+  const todayIso = toIso({ y: p.y, m0: p.m0, d: p.d });
+  const tomorrowIso = toIso(addDays({ y: p.y, m0: p.m0, d: p.d }, 1));
+  const { hh, mm } = parseTime(s.meetingTime);
+  const out: Array<{ id: string; when: "tomorrow" | "today"; text: string }> = [];
+  for (const off of [0, 1]) {
+    const { y, m0 } = addMonths(p.y, p.m0, off);
+    const w = firstWednesday(y, m0);
+    const iso = toIso(w);
+    const text = `Team meeting: ${label} at ${formatDisplayTime(s.meetingTime)} (${formatMeetingDate(w)})`;
+    if (iso === tomorrowIso) out.push({ id: `team:${s.key}:${iso}:tomorrow`, when: "tomorrow", text });
+    if (iso === todayIso && now <= istMoment(w.y, w.m0, w.d, hh, mm)) out.push({ id: `team:${s.key}:${iso}:today`, when: "today", text });
+  }
+  return out;
+}
+
 /**
  * What to do with one queue row right now.
- * Pending and Failed rows are eligible (Failed ones are retried); Sent, Missed and gave-up rows are final.
+ * Pending and Failed rows are eligible (Failed ones are retried); Sent and Missed rows are final.
+ * A "Sending" row is claimed by a run in progress and is skipped, unless the claim is stale.
  */
 export function decide(
-  row: { status: string; dueAt: number; meetingAt: number; attempts: number },
+  row: { status: string; dueAt: number; meetingAt: number; attempts: number; sentAt?: string },
   now: number,
   s: Pick<ReminderSettings, "maxDelayMinutes" | "maxAttempts">,
 ): Decision {
-  if (row.status !== "Pending" && row.status !== "Failed") return { action: "skip" };
+  if (row.status === "Sending") {
+    // another run has claimed this reminder: leave it alone unless that run clearly died
+    const claimed = Date.parse(row.sentAt ?? "");
+    if (!(Number.isFinite(claimed) && now - claimed > CLAIM_STALE_MS)) return { action: "skip" };
+  } else if (row.status !== "Pending" && row.status !== "Failed") return { action: "skip" };
   if (now < row.dueAt) return { action: "wait" };
   if (now > row.meetingAt) return { action: "missed", reason: "Skipped because meeting time already passed." };
   const late = Math.round((now - row.dueAt) / 60_000);

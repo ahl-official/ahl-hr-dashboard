@@ -116,16 +116,9 @@ t("POST /api/documents validates input", async () => {
   assert.equal(r.status, 400, "Verified needs a drive link");
 });
 
-t("POST /api/employees validates input", async () => {
-  assert.equal((await call("/api/employees", { method: "POST", body: "{}" })).status, 400);
-  const base = { fullName: "Zz Test", employeeId: "ZZ-TEST-1", company: "AHL", department: dept };
-  const post = (b: object) => call("/api/employees", { method: "POST", body: JSON.stringify({ ...base, ...b }) });
-  assert.equal((await post({ department: "Not A Department" })).status, 400);
-  assert.equal((await post({ doj: "2026-02-30" })).status, 400);
-  assert.equal((await post({ companyEmail: "not-an-email" })).status, 400);
-  assert.equal((await post({ dob: "2030-01-01", doj: "2026-01-01" })).status, 400, "DOB after DOJ");
-  const existing = employees.find((e) => e.employeeId && e.company);
-  assert.equal((await post({ employeeId: existing.employeeId, company: existing.company })).status, 409, "same id in same company");
+t("creating employees directly over the API is closed (joiners go through /api/join)", async () => {
+  const r = await call("/api/employees", { method: "POST", body: JSON.stringify({ fullName: "Zz", company: "AHL", department: dept }) });
+  assert.equal(r.status, 405);
 });
 
 t("GET /api/employees filters and paginates", async () => {

@@ -67,6 +67,17 @@ export async function ensureSheet(title: string, headers: string[]) {
   await updateValues(`${title}!A1`, [headers]);
 }
 
+/**
+ * Writes rows directly below the last used row of column A, with explicit coordinates. Unlike the "append" call
+ * this cannot be thrown off by blank rows inside the tab. Only for tabs with a single writer.
+ */
+export async function appendBelow(tab: string, lastColumn: string, rows: unknown[][]) {
+  if (!rows.length) return;
+  const colA = await getValues(`${tab}!A:A`);
+  const start = colA.length + 1;
+  await updateValues(`${tab}!A${start}:${lastColumn}${start + rows.length - 1}`, rows);
+}
+
 export function serialToIsoDate(value: unknown) {
   if (typeof value !== "number" || !Number.isFinite(value)) return String(value ?? "").trim();
   const date = new Date(Date.UTC(1899, 11, 30) + Math.floor(value) * 86400000);

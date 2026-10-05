@@ -55,6 +55,8 @@ async function tick(req: NextRequest) {
       const text = cfg.mode === "PROD" ? body : `*[TEST - this would go to the group]*\n\n${body}`;
       if (dry) { report.push({ id: row.id, action: "would send", detail: target.label }); continue; }
       sends++;
+      // claim it first so an overlapping run cannot send the same reminder a second time
+      await updateQueueRow(row.rowNumber, { mode: cfg.mode, status: "Sending", sentAt: new Date().toISOString(), attempts: row.attempts, lastError: "" });
       try {
         const response = await sendWahaText({ chatId: target.chatId, text, mentions: cfg.mode === "PROD" ? mentions.ids : [] });
         await updateQueueRow(row.rowNumber, { mode: cfg.mode, status: "Sent", sentAt: new Date().toISOString(), attempts: row.attempts + 1, lastError: "" });

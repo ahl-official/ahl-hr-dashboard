@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  SALON_MEETING, queueForMonth, firstWednesday, formatMeetingDate, formatDisplayTime, baseMonth, buildQueue, buildMessage, decide, istMoment, istParts, ymdFromIso,
+  SALON_MEETING, queueForMonth, teamMeetingReminders, CLAIM_STALE_MS, firstWednesday, formatMeetingDate, formatDisplayTime, baseMonth, buildQueue, buildMessage, decide, istMoment, istParts, ymdFromIso,
 } from "../src/lib/meeting-reminders.ts";
 
 const ist = (y: number, m: number, d: number, hh = 0, mm = 0) => istMoment(y, m - 1, d, hh, mm);
@@ -108,4 +108,28 @@ test("queueForMonth gives any month's meeting and its four reminders (used by th
   assert.ok(q.every((r) => r.meetingDate === "2027-03-03"), "first Wednesday of March 2027 is the 3rd");
   assert.deepEqual(q.map((r) => r.reminderDate), ["2027-02-28", "2027-03-01", "2027-03-02", "2027-03-03"]);
   assert.deepEqual(q.map((r) => r.id), ["SALON_MEET_2027-03_R3", "SALON_MEET_2027-03_R2", "SALON_MEET_2027-03_R1", "SALON_MEET_2027-03_R0"]);
+});
+
+test("HR digest: the team meeting is Tomorrow the day before and Today on the day", () => {
+  const eve = teamMeetingReminders(ist(2026, 10, 6, 9), SALON_MEETING); // Tue 6 Oct 09:00, meeting is Wed 7 Oct
+  assert.deepEqual(eve.map((r) => r.when), ["tomorrow"]);
+  assert.equal(eve[0].text, "Team meeting: Salon Monthly Staff Meeting at 10.00 am (Wednesday 7th October 2026)");
+  const day = teamMeetingReminders(ist(2026, 10, 7, 9), SALON_MEETING);
+  assert.deepEqual(day.map((r) => r.when), ["today"]);
+  assert.equal(teamMeetingReminders(ist(2026, 10, 7, 10, 30), SALON_MEETING).length, 0, "not after it has started");
+  assert.equal(teamMeetingReminders(ist(2026, 10, 5, 9), SALON_MEETING).length, 0, "two days before: nothing");
+  assert.equal(teamMeetingReminders(ist(2026, 10, 8, 9), SALON_MEETING).length, 0, "day after: nothing");
+  // the next month's meeting is found across a month boundary: Tue 3 Nov -> Wed 4 Nov
+  assert.deepEqual(teamMeetingReminders(ist(2026, 11, 3, 9), SALON_MEETING).map((r) => r.when), ["tomorrow"]);
+  // month boundary: first Wednesday of Dec 2026 is the 2nd; the 1st is the day before
+  assert.deepEqual(teamMeetingReminders(ist(2026, 12, 1, 9), SALON_MEETING).map((r) => r.when), ["tomorrow"]);
+});
+
+test("a reminder being sent by another run is not sent twice; a dead claim is retried", () => {
+  const due = ist(2026, 10, 6, 11), meet = ist(2026, 10, 7, 10);
+  const claimed = (ago: number) => ({ status: "Sending", dueAt: due, meetingAt: meet, attempts: 0, sentAt: new Date(due + 60_000 - ago).toISOString() });
+  const now = due + 60_000;
+  assert.equal(decide(claimed(30_000), now, SALON_MEETING).action, "skip", "claimed 30 s ago: leave it");
+  assert.equal(decide(claimed(CLAIM_STALE_MS + 1000), now, SALON_MEETING).action, "send", "claimed long ago and never finished: retry");
+  assert.equal(decide({ status: "Sending", dueAt: due, meetingAt: meet, attempts: 0 }, now, SALON_MEETING).action, "skip", "no claim time: do not risk a double send");
 });

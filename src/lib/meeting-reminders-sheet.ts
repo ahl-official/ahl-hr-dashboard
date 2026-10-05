@@ -122,3 +122,9 @@ export function targetFor(c: MeetingReminderConfig): { chatId: string; label: st
   if (c.mode === "PROD") return c.liveGroupId ? { chatId: c.liveGroupId, label: "live group" } : null;
   return c.testNumber ? { chatId: `${c.testNumber.length === 10 ? "91" : ""}${c.testNumber}@c.us`, label: "test number" } : null;
 }
+
+/**
+ * Row number for the next appended row, given the values of column A (header included; Google drops trailing
+ * blanks). Blank rows in the middle count, so a stray blank row can never misplace new data.
+ */
+export const nextFreeRow = (columnA: unknown[]): number => columnA.length + 1;

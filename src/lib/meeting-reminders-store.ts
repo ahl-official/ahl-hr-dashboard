@@ -1,6 +1,6 @@
 import "server-only";
 
-import { appendValues, ensureSheet, getValues, updateValues } from "./google-sheets";
+import { appendBelow, appendValues, ensureSheet, getValues, updateValues } from "./google-sheets";
 import {
   DEFAULT_SETTINGS_ROWS, LOG_HEADERS, LOG_TAB, MENTIONS_HEADERS, MENTIONS_TAB, QUEUE_HEADERS, QUEUE_TAB, SETTINGS_HEADERS, SETTINGS_TAB,
   itemToRow, parseMentions, parseQueue, parseSettings, type MeetingReminderConfig, type QueueRow,
@@ -37,7 +37,7 @@ export async function loadQueue(): Promise<QueueRow[]> {
 /** Adds the reminders that are not in the queue yet (IDs are unique, so running twice adds nothing). */
 export async function addMissingToQueue(items: QueueItem[], existingIds: Set<string>, mode: string): Promise<number> {
   const fresh = items.filter((i) => !existingIds.has(i.id));
-  if (fresh.length) await appendValues(`${QUEUE_TAB}!A:M`, fresh.map((i) => itemToRow(i, mode)));
+  if (fresh.length) await appendBelow(QUEUE_TAB, "M", fresh.map((i) => itemToRow(i, mode)));
   return fresh.length;
 }
 
@@ -46,7 +46,7 @@ export async function updateQueueRow(rowNumber: number, patch: { mode: string; s
 }
 
 export async function appendLog(row: { id: string; month: string; type: string; target: string; mode: string; mentions: string; message: string; status: string; response: string; error: string }) {
-  await appendValues(`${LOG_TAB}!A:K`, [[new Date().toISOString(), row.id, row.month, row.type, row.target, row.mode, row.mentions, row.message, row.status, row.response.slice(0, 500), row.error]]);
+  await appendBelow(LOG_TAB, "K", [[new Date().toISOString(), row.id, row.month, row.type, row.target, row.mode, row.mentions, row.message, row.status, row.response.slice(0, 500), row.error]]);
 }
 
 /** Records "the timer is alive". The dashboard shows an alert when this goes stale. */

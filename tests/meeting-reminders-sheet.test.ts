@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseSettings, parseMentions, parseQueue, itemToRow, targetFor, DEFAULT_SETTINGS_ROWS, SETTINGS_HEADERS, QUEUE_HEADERS } from "../src/lib/meeting-reminders-sheet.ts";
+import { parseSettings, parseMentions, parseQueue, itemToRow, targetFor, nextFreeRow, DEFAULT_SETTINGS_ROWS, SETTINGS_HEADERS, QUEUE_HEADERS } from "../src/lib/meeting-reminders-sheet.ts";
 import { buildQueue, SALON_MEETING, istMoment } from "../src/lib/meeting-reminders.ts";
 
 const withHeader = (rows: string[][]) => [SETTINGS_HEADERS, ...rows];
@@ -62,4 +62,11 @@ test("target: the live group only in PROD; TEST goes to the test number", () => 
   assert.deepEqual(targetFor({ ...base, mode: "PROD" }), { chatId: "123-456@g.us", label: "live group" });
   assert.equal(targetFor({ ...base, mode: "PROD", liveGroupId: "" }), null);
   assert.equal(targetFor({ ...base, testNumber: "" }), null);
+});
+
+test("next free row ignores nothing: blank rows inside the tab still count, so data is never overwritten or misplaced", () => {
+  assert.equal(nextFreeRow([["Reminder_ID"]]), 2, "only the header -> row 2");
+  assert.equal(nextFreeRow([["Reminder_ID"], ["A"], ["B"]]), 4);
+  assert.equal(nextFreeRow([["Reminder_ID"], [], ["B"]]), 4, "a blank row in the middle counts");
+  assert.equal(nextFreeRow([]), 1);
 });

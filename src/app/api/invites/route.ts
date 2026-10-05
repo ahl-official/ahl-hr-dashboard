@@ -3,6 +3,7 @@ import { getCanonicalDepartments } from "@/lib/store";
 import { createInvite, listInvites } from "@/lib/invites";
 import { COMPANY_CODES } from "@/lib/employee-id";
 import { sendWhatsApp } from "@/lib/waha";
+import { rateLimited } from "@/lib/rate-limit";
 import { ValidationError, errorStatus, isIsoDate, isPhone } from "@/lib/validate";
 import { LINK_VALID_DAYS, type InviteMode } from "@/lib/invite-rules";
 
@@ -25,6 +26,9 @@ export async function GET() {
 
 /** HR creates an invitation. mode "link" = send it on WhatsApp, "device" = open the form on this company device. */
 export async function POST(req: NextRequest) {
+  if (rateLimited(`invite:${req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local"}`, 10, 60_000)) {
+    return NextResponse.json({ success: false, error: "Too many invitations in a minute. Please wait." }, { status: 429 });
+  }
   try {
     const b = await req.json();
     const mode: InviteMode = b.mode === "device" ? "device" : "link";
