@@ -148,7 +148,7 @@ export function buildQueue(now: number, s: ReminderSettings): QueueItem[] {
   return out;
 }
 
-/** The WhatsApp text, identical to the old script. mentionNumbers are digits only, e.g. 919372897938. */
+/** The WhatsApp text, identical to the old script. mentionNumbers are digits only, e.g. 919000000001. */
 export function buildMessage(type: string, meetingDate: Ymd, meetingTime: string, mentionNumbers: string[]): string {
   const action =
     type === "3 Days Before"

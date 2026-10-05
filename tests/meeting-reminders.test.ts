@@ -75,9 +75,9 @@ test("queue crosses month and year ends correctly", () => {
 
 test("message text keeps the old wording for every reminder type", () => {
   const d = ymdFromIso("2026-11-04");
-  const tags = ["919372897938", "919930068840"];
+  const tags = ["919000000001", "919000000002"];
   const r3 = buildMessage("3 Days Before", d, "10:00", tags);
-  assert.ok(r3.startsWith("*TO ALL - Salon floor staff,*\n\n*Salon Monthly Staff Meeting 👇*\n\n*On Wednesday 4th November 2026 @ 10.00 am (Please note) ☝️*\n\n@919372897938 & @919930068840\n\n"));
+  assert.ok(r3.startsWith("*TO ALL - Salon floor staff,*\n\n*Salon Monthly Staff Meeting 👇*\n\n*On Wednesday 4th November 2026 @ 10.00 am (Please note) ☝️*\n\n@919000000001 & @919000000002\n\n"));
   assert.ok(r3.endsWith("*Please start taking confirmation of staff presence for the meeting and keep the attendance confirmation ready ☝️*"));
   assert.ok(buildMessage("2 Days Before", d, "10:00", tags).includes("Please confirm presence from all salon staff members"));
   assert.ok(buildMessage("1 Day Before", d, "10:00", tags).includes("Tomorrow plzz take confirm presence"));
