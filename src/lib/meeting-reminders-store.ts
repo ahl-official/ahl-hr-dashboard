@@ -6,6 +6,7 @@ import {
   itemToRow, parseMentions, parseQueue, parseSettings, type MeetingReminderConfig, type QueueRow,
 } from "./meeting-reminders-sheet";
 import type { QueueItem } from "./meeting-reminders";
+import { alreadySentTo, latestDigest } from "./hr-digest";
 
 let tabsReady = false;
 async function ensureTabs() {
@@ -55,4 +56,16 @@ export async function touchHeartbeat() {
   const rows = await getValues(`${SETTINGS_TAB}!A:A`);
   const i = rows.findIndex((r) => String(r[0] ?? "").trim() === "LAST_TICK_AT");
   if (i >= 0) await updateValues(`${SETTINGS_TAB}!B${i + 1}`, [[new Date().toISOString()]]);
+}
+
+/** Phone numbers that already received the HR digest with this id (so a re-run never sends twice). */
+export async function hrDigestSentTo(id: string): Promise<Set<string>> {
+  await ensureTabs();
+  return alreadySentTo(await getValues(`${LOG_TAB}!A:K`), id);
+}
+
+/** Most recent HR digest day and how many people it reached (for the calendar's status line). */
+export async function latestHrDigest() {
+  await ensureTabs();
+  return latestDigest(await getValues(`${LOG_TAB}!A:K`));
 }

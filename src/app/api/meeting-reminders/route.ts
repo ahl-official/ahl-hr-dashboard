@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { targetFor } from "@/lib/meeting-reminders-sheet";
-import { loadConfig, loadQueue } from "@/lib/meeting-reminders-store";
+import { latestHrDigest, loadConfig, loadQueue } from "@/lib/meeting-reminders-store";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +11,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   try {
     const [cfg, queue] = await Promise.all([loadConfig(), loadQueue()]);
+    const hrDigest = await latestHrDigest().catch(() => null);
     const target = targetFor(cfg);
     return NextResponse.json({
       success: true,
@@ -18,6 +19,7 @@ export async function GET() {
       mode: cfg.mode,
       sendsTo: target ? target.label : "not set",
       lastTickAt: cfg.lastTickAt,
+      hrDigest,
       schedule: cfg.schedule,
       queue: queue.map((r) => ({ id: r.id, status: r.status, attempts: r.attempts, lastError: r.lastError, sentAt: r.sentAt })),
     });

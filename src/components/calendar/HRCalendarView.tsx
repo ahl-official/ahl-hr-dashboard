@@ -40,6 +40,8 @@ export interface SalonInfo {
   mode: "TEST" | "PROD";
   sendsTo: string;
   lastTickAt: string;
+  /** The most recent HR morning WhatsApp: which day, and how many people it reached */
+  hrDigest?: { date: string; at: string; sent: number; failed: number } | null;
   schedule: ReminderSettings;
   queue: Array<{ id: string; status: string; attempts: number; lastError: string; sentAt: string }>;
 }
@@ -812,10 +814,11 @@ export function HRCalendarView({
                             r.status === "Sent" ? "bg-emerald-50 text-emerald-700"
                             : r.status === "Failed" ? "bg-rose-50 text-rose-700"
                             : r.status === "Missed" ? "bg-amber-50 text-amber-800"
+                            : r.status === "Skipped" ? "bg-slate-100 text-slate-500"
                             : "bg-slate-100 text-slate-600"
                           }`}
                         >
-                          {r.status}
+                          {r.status === "Skipped" ? "Old system" : r.status}
                         </span>
                       </div>
                     ))}
@@ -942,6 +945,11 @@ function SalonStatusStrip({ salon }: { salon: SalonInfo }) {
         {salon.mode === "PROD" ? "Live: sends to the group" : `Test mode: messages go to the ${salon.sendsTo}, not the group`}
       </span>
       {failed > 0 && <span className="px-2 py-0.5 rounded font-semibold bg-rose-50 text-rose-700">{failed} failed, will retry</span>}
+      <span className={`px-2 py-0.5 rounded font-semibold ${salon.hrDigest && salon.hrDigest.failed > 0 ? "bg-rose-50 text-rose-700" : salon.hrDigest ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
+        {salon.hrDigest
+          ? `HR morning message ${formatDisplayDate(salon.hrDigest.date)}: sent to ${salon.hrDigest.sent}${salon.hrDigest.failed ? `, ${salon.hrDigest.failed} failed` : ""}`
+          : "HR morning message: none sent yet"}
+      </span>
     </div>
   );
 }
