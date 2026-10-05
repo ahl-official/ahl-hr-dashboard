@@ -12,6 +12,7 @@ import { rateLimited } from "@/lib/rate-limit";
 import { ValidationError, errorStatus, validateOnboardingStep } from "@/lib/validate";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60; // Drive + WhatsApp can take 10-40 s; Vercel allows 10 s by default
 
 const GONE: Record<string, string> = {
   expired: "This link has expired. Please ask HR to send you a new one.",

@@ -5,6 +5,7 @@ import { uploadHrAttachment } from "@/lib/google-drive";
 import { errorStatus } from "@/lib/validate";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60; // Drive + WhatsApp can take 10-40 s; Vercel allows 10 s by default
 
 export async function GET(req: NextRequest) {
   try {

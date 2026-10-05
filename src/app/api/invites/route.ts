@@ -7,6 +7,7 @@ import { ValidationError, errorStatus, isIsoDate, isPhone } from "@/lib/validate
 import { LINK_VALID_DAYS, type InviteMode } from "@/lib/invite-rules";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60; // Drive + WhatsApp can take 10-40 s; Vercel allows 10 s by default
 
 const baseUrl = (req: NextRequest) => (process.env.APP_BASE_URL || req.nextUrl.origin).replace(/\/+$/, "");
 
