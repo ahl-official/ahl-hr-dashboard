@@ -11,7 +11,7 @@ async function run(req: NextRequest) {
   if (!secret || req.headers.get("authorization") !== `Bearer ${secret}`) {
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
   }
-  const cfg = reminderConfig();
+  const cfg = await reminderConfig();
   if (!cfg.enabled) return NextResponse.json({ success: true, skipped: "REMINDERS_ENABLED is not true" });
   if (!cfg.recipients.length) return NextResponse.json({ success: false, error: "No recipients configured" }, { status: 400 });
 

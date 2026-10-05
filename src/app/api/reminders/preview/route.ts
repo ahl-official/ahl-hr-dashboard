@@ -10,7 +10,7 @@ export async function GET() {
   try {
     const [employees, meetings] = await Promise.all([getAllEmployees(), getAllMeetings()]);
     const items = buildReminders(employees, meetings);
-    const cfg = reminderConfig();
+    const cfg = await reminderConfig();
     return NextResponse.json({
       success: true,
       enabled: cfg.enabled,

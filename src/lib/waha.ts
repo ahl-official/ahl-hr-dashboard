@@ -1,10 +1,11 @@
 import "server-only";
 
 import { CONFIG } from "./config";
+import { getHrWhatsAppNumbers } from "./hr-users";
 
-/** Who receives the reminders and notifications (see config.ts). */
-export function reminderConfig() {
-  return { enabled: CONFIG.remindersEnabled, recipients: CONFIG.hrNumbers };
+/** Who receives the reminders and notifications: every active person in the HR_Users sheet tab. */
+export async function reminderConfig() {
+  return { enabled: CONFIG.remindersEnabled, recipients: await getHrWhatsAppNumbers() };
 }
 
 export async function sendWhatsApp(number: string, text: string) {
@@ -24,7 +25,7 @@ export async function sendWhatsApp(number: string, text: string) {
 /** Tell HR something happened. Goes to the configured recipients (the developer number in dev mode). Never throws. */
 export async function notifyHr(text: string) {
   try {
-    const { recipients } = reminderConfig();
+    const { recipients } = await reminderConfig();
     await Promise.allSettled(recipients.map((n) => sendWhatsApp(n, text)));
   } catch {}
 }
