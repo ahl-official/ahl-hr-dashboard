@@ -118,32 +118,37 @@ export type QueueItem = {
   dueAt: number;
 };
 
+/** The meeting of one month and its reminders (used by the queue and by the calendar). */
+export function queueForMonth(y: number, m0: number, s: ReminderSettings): QueueItem[] {
+  const { hh, mm } = parseTime(s.meetingTime);
+  const meeting = firstWednesday(y, m0);
+  const monthKey = `${y}-${pad(m0 + 1)}`;
+  return s.reminders.map((def) => {
+    const when = addDays(meeting, -def.daysBefore);
+    const t = parseTime(def.time);
+    return {
+      id: `${s.key}_${monthKey}_${def.code}`,
+      monthKey,
+      monthLabel: `${MONTHS[m0]} ${y}`,
+      meetingDate: toIso(meeting),
+      meetingTime: s.meetingTime,
+      meetingAt: istMoment(meeting.y, meeting.m0, meeting.d, hh, mm),
+      code: def.code,
+      type: def.type,
+      reminderDate: toIso(when),
+      reminderTime: def.time,
+      dueAt: istMoment(when.y, when.m0, when.d, t.hh, t.mm),
+    };
+  });
+}
+
 /** The reminders that should exist for the next few meetings. IDs are stable, so re-running adds nothing new. */
 export function buildQueue(now: number, s: ReminderSettings): QueueItem[] {
   const base = baseMonth(now, s);
-  const { hh, mm } = parseTime(s.meetingTime);
   const out: QueueItem[] = [];
   for (let i = 0; i < s.monthsAhead; i++) {
     const { y, m0 } = addMonths(base.y, base.m0, i);
-    const meeting = firstWednesday(y, m0);
-    const monthKey = `${y}-${pad(m0 + 1)}`;
-    for (const def of s.reminders) {
-      const when = addDays(meeting, -def.daysBefore);
-      const t = parseTime(def.time);
-      out.push({
-        id: `${s.key}_${monthKey}_${def.code}`,
-        monthKey,
-        monthLabel: `${MONTHS[m0]} ${y}`,
-        meetingDate: toIso(meeting),
-        meetingTime: s.meetingTime,
-        meetingAt: istMoment(meeting.y, meeting.m0, meeting.d, hh, mm),
-        code: def.code,
-        type: def.type,
-        reminderDate: toIso(when),
-        reminderTime: def.time,
-        dueAt: istMoment(when.y, when.m0, when.d, t.hh, t.mm),
-      });
-    }
+    out.push(...queueForMonth(y, m0, s));
   }
   return out;
 }

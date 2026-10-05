@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  SALON_MEETING, firstWednesday, formatMeetingDate, formatDisplayTime, baseMonth, buildQueue, buildMessage, decide, istMoment, istParts, ymdFromIso,
+  SALON_MEETING, queueForMonth, firstWednesday, formatMeetingDate, formatDisplayTime, baseMonth, buildQueue, buildMessage, decide, istMoment, istParts, ymdFromIso,
 } from "../src/lib/meeting-reminders.ts";
 
 const ist = (y: number, m: number, d: number, hh = 0, mm = 0) => istMoment(y, m - 1, d, hh, mm);
@@ -100,4 +100,12 @@ test("decide: wait, send, missed, retry and final states", () => {
   assert.equal(D(row("Failed", 6), due + 30 * 60_000).action, "missed", "gives up after 6 attempts");
   assert.equal(D(row("Failed", 1), due + 200 * 60_000).action, "missed", "too late to retry");
   for (const s of ["Sent", "Missed"]) assert.equal(D(row(s), due + 60_000).action, "skip");
+});
+
+test("queueForMonth gives any month's meeting and its four reminders (used by the calendar)", () => {
+  const q = queueForMonth(2027, 2, SALON_MEETING); // March 2027
+  assert.equal(q.length, 4);
+  assert.ok(q.every((r) => r.meetingDate === "2027-03-03"), "first Wednesday of March 2027 is the 3rd");
+  assert.deepEqual(q.map((r) => r.reminderDate), ["2027-02-28", "2027-03-01", "2027-03-02", "2027-03-03"]);
+  assert.deepEqual(q.map((r) => r.id), ["SALON_MEET_2027-03_R3", "SALON_MEET_2027-03_R2", "SALON_MEET_2027-03_R1", "SALON_MEET_2027-03_R0"]);
 });

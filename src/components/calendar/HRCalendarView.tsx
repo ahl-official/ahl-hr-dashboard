@@ -17,8 +17,10 @@ import {
   Eye,
   ExternalLink,
   MessageCircle,
+  BellRing,
 } from "lucide-react";
 import { EmployeeSummary, MeetingRecord, BirthdayEvent, ReviewEvent } from "@/types";
+import { queueForMonth, formatDisplayTime, type ReminderSettings } from "@/lib/meeting-reminders";
 import {
   formatDisplayDate,
   initials,
@@ -31,7 +33,16 @@ import {
   getActionFollowUpWhatsAppUrl,
 } from "@/lib/whatsapp";
 
-export type CalendarEventType = "review" | "meeting" | "followup" | "warning" | "birthday";
+export type CalendarEventType = "review" | "meeting" | "followup" | "warning" | "birthday" | "team";
+
+/** State of the monthly team-meeting reminders (from /api/meeting-reminders). */
+export interface SalonInfo {
+  mode: "TEST" | "PROD";
+  sendsTo: string;
+  lastTickAt: string;
+  schedule: ReminderSettings;
+  queue: Array<{ id: string; status: string; attempts: number; lastError: string; sentAt: string }>;
+}
 
 export interface CalendarEvent {
   id: string;
@@ -49,6 +60,8 @@ export interface CalendarEvent {
   };
   rawEmployee?: EmployeeSummary;
   rawMeeting?: MeetingRecord;
+  /** Reminders of a team meeting, with their sending status */
+  reminders?: Array<{ type: string; due: string; status: string; error: string }>;
 }
 
 interface HRCalendarViewProps {
@@ -65,9 +78,12 @@ interface HRCalendarViewProps {
     discussionNotes?: string;
   }) => void;
   onSelectEmployee: (employee: EmployeeSummary) => void;
+  /** Monthly team meeting and its reminders (optional) */
+  salon?: SalonInfo | null;
 }
 
 export function HRCalendarView({
+  salon,
   employees,
   meetings,
   birthdays,
@@ -240,8 +256,43 @@ export function HRCalendarView({
       });
     });
 
+    // 5. Monthly team meeting (1st Wednesday) with the status of its four reminders
+    if (salon) {
+      const byId = new Map(salon.queue.map((q) => [q.id, q]));
+      for (const off of [-1, 0, 1]) {
+        const t = new Date(Date.UTC(currentYear, currentMonth + off, 1));
+        const items = queueForMonth(t.getUTCFullYear(), t.getUTCMonth(), salon.schedule);
+        const reminders = items.map((it) => {
+          const q = byId.get(it.id);
+          return {
+            type: it.type,
+            due: `${formatDisplayDate(it.reminderDate)}, ${formatDisplayTime(it.reminderTime)}`,
+            status: q?.status ?? "Pending",
+            error: q?.lastError ?? "",
+          };
+        });
+        const sent = reminders.filter((r) => r.status === "Sent").length;
+        const failed = reminders.some((r) => r.status === "Failed");
+        list.push({
+          id: `team-${items[0].monthKey}`,
+          type: "team",
+          title: "Salon Monthly Staff Meeting",
+          subtitle: `${formatDisplayTime(salon.schedule.meetingTime)} · reminders ${sent}/${reminders.length} sent`,
+          dateStr: items[0].meetingDate,
+          badgeLabel: failed ? "Reminder failed" : "Team meeting",
+          colorClass: {
+            chip: "bg-violet-50 text-violet-800 border-violet-200 hover:bg-violet-100",
+            dot: "bg-violet-500",
+            border: "border-l-4 border-l-violet-500",
+            badge: failed ? "bg-rose-100 text-rose-800" : "bg-violet-100 text-violet-800",
+          },
+          reminders,
+        });
+      }
+    }
+
     return list;
-  }, [meetings, employees, milestones, birthdays]);
+  }, [meetings, employees, milestones, birthdays, salon, currentYear, currentMonth]);
 
   // Apply Event Type Filter
   const filteredEvents = useMemo(() => {
@@ -371,6 +422,8 @@ export function HRCalendarView({
         </button>
       </div>
 
+      {salon && <SalonStatusStrip salon={salon} />}
+
       {/* Main Calendar Card */}
       <div className="bg-surface rounded-card border border-borderline shadow-card overflow-hidden">
         {/* Navigation & Controls Bar */}
@@ -415,6 +468,7 @@ export function HRCalendarView({
                 { id: "meeting", label: "Meetings" },
                 { id: "followup", label: "Follow-ups" },
                 { id: "birthday", label: "Birthdays" },
+                ...(salon ? [{ id: "team", label: "Team meeting" }] : []),
               ].map((f) => (
                 <button
                   key={f.id}
@@ -746,6 +800,28 @@ export function HRCalendarView({
                   </span>
                 </div>
 
+                {inspectedEvent.reminders && (
+                  <div className="pt-1 space-y-1.5">
+                    <div className="flex items-center gap-1.5 text-slate-500"><BellRing className="w-3.5 h-3.5" /> WhatsApp reminders to the group</div>
+                    {inspectedEvent.reminders.map((r) => (
+                      <div key={r.type} className="flex items-center justify-between gap-2">
+                        <span className="text-slate-700">{r.type} <span className="text-slate-400">· {r.due}</span></span>
+                        <span
+                          title={r.error || undefined}
+                          className={`text-[11px] font-semibold px-2 py-0.5 rounded ${
+                            r.status === "Sent" ? "bg-emerald-50 text-emerald-700"
+                            : r.status === "Failed" ? "bg-rose-50 text-rose-700"
+                            : r.status === "Missed" ? "bg-amber-50 text-amber-800"
+                            : "bg-slate-100 text-slate-600"
+                          }`}
+                        >
+                          {r.status}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 {inspectedEvent.rawMeeting && (
                   <>
                     <div className="flex justify-between">
@@ -825,6 +901,7 @@ export function HRCalendarView({
                 </button>
               )}
 
+              {inspectedEvent.type !== "team" && (
               <button
                 onClick={() => {
                   const dateStr = inspectedEvent.dateStr;
@@ -839,10 +916,32 @@ export function HRCalendarView({
               >
                 Schedule Follow-Up
               </button>
+              )}
             </div>
           </div>
         </div>
       )}
     </section>
+  );
+}
+
+
+/** One line under the calendar title: is the reminder timer alive, and where do messages go? */
+function SalonStatusStrip({ salon }: { salon: SalonInfo }) {
+  const last = salon.lastTickAt ? Date.parse(salon.lastTickAt) : NaN;
+  const minutes = Number.isFinite(last) ? Math.max(0, Math.round((Date.now() - last) / 60000)) : null;
+  const stale = minutes === null || minutes > 15;
+  const failed = salon.queue.filter((q) => q.status === "Failed").length;
+  return (
+    <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs">
+      <span className={`inline-flex items-center gap-1.5 font-medium ${stale ? "text-rose-700" : "text-emerald-700"}`}>
+        <span className={`w-2 h-2 rounded-full ${stale ? "bg-rose-500" : "bg-emerald-500"}`} />
+        {minutes === null ? "Meeting reminders: timer not connected yet" : stale ? `Meeting reminders: no check for ${minutes} min, is the timer running?` : `Meeting reminders: checked ${minutes} min ago`}
+      </span>
+      <span className={`px-2 py-0.5 rounded font-semibold ${salon.mode === "PROD" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800"}`}>
+        {salon.mode === "PROD" ? "Live: sends to the group" : `Test mode: messages go to the ${salon.sendsTo}, not the group`}
+      </span>
+      {failed > 0 && <span className="px-2 py-0.5 rounded font-semibold bg-rose-50 text-rose-700">{failed} failed, will retry</span>}
+    </div>
   );
 }
