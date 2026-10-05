@@ -173,7 +173,7 @@ test("onboarding wizard validation per step", () => {
     fullName: "A B", employeeId: "10", company: "AHL", designation: "X", department: "Accounts", manager: "M", doj: "2026-10-01", companyEmail: "",
     dob: "1995-05-05", mobile: "9876543210", personalEmail: "a@b.co", emergencyNumber: "", aadhar: "", pan: "",
     ifsc: "", accountNumber: "", currentSalary: "", incrementYear: "", incrementPercent: "",
-    signature: "A B", signatureImage: "data", signDate: "2026-10-01", politicalBackground: "No", politicalDetails: "",
+    signature: "A B", declaration: "yes", signDate: "2026-10-01", politicalBackground: "No", politicalDetails: "",
   };
   for (const step of [1, 2, 3, 4, 5]) assert.equal(validateOnboardingStep(step, ok), null, `step ${step}`);
   assert.match(validateOnboardingStep(1, { ...ok, fullName: " " })!, /Full name/);
@@ -185,5 +185,5 @@ test("onboarding wizard validation per step", () => {
   assert.match(validateOnboardingStep(2, { ...ok, personalEmail: "nope" })!, /email/);
   assert.match(validateOnboardingStep(3, { ...ok, ifsc: "BAD" })!, /IFSC/);
   assert.match(validateOnboardingStep(5, { ...ok, politicalBackground: "Yes" })!, /political/i);
-  assert.match(validateOnboardingStep(5, { ...ok, signatureImage: "" })!, /draw your signature/);
+  assert.match(validateOnboardingStep(5, { ...ok, declaration: "" })!, /tick the box/);
 });

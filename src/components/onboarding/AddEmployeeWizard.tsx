@@ -19,10 +19,9 @@ import {
 import { CANONICAL_DEPARTMENTS, COMPANIES, GENDERS, DIETARY_PREFERENCES, VEHICLE_OWNERSHIPS, HOUSING_STATUSES } from "@/lib/constants";
 import { getTodayLocalIsoDate } from "@/lib/date-utils";
 import { validateOnboardingStep } from "@/lib/validate";
-import { SignaturePad } from "./SignaturePad";
 import { EmployeeSummary } from "@/types";
 
-const SENSITIVE_FIELDS = ["aadhar", "pan", "accountNumber", "ifsc", "lastSalary", "signature"];
+const SENSITIVE_FIELDS = ["aadhar", "pan", "accountNumber", "ifsc", "lastSalary", "signature", "declaration"];
 
 // Fields HR sets on the invitation; the joiner sees them but cannot change them (the server enforces this too).
 const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
@@ -43,7 +42,6 @@ export function AddEmployeeWizard({ prefill, submitUrl, onSubmitted }: AddEmploy
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [stepError, setStepError] = useState<string | null>(null);
-  const [signatureImage, setSignatureImage] = useState<string | null>(null);
   const [draftRestored, setDraftRestored] = useState(false);
   const [done, setDone] = useState(false);
   const DRAFT_KEY = `ahl-onboarding-draft-v2:${submitUrl}`;
@@ -102,6 +100,7 @@ export function AddEmployeeWizard({ prefill, submitUrl, onSubmitted }: AddEmploy
     vehicleOwnership: "None",
     housingStatus: "Rented Property",
     signature: "",
+    declaration: "",
     signDate: getTodayLocalIsoDate(),
   });
 
@@ -112,7 +111,7 @@ export function AddEmployeeWizard({ prefill, submitUrl, onSubmitted }: AddEmploy
 
   // Validation per step (pure rules live in lib/validate.ts and are unit-tested)
   const validateStep = (step: number): boolean => {
-    const problem = validateOnboardingStep(step, { ...(formData as Record<string, string>), signatureImage: signatureImage ? "yes" : "" });
+    const problem = validateOnboardingStep(step, (formData as Record<string, string>));
     setStepError(problem);
     return problem === null;
   };
@@ -174,7 +173,7 @@ export function AddEmployeeWizard({ prefill, submitUrl, onSubmitted }: AddEmploy
       const res = await fetch(submitUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ form: formData, signatureImage }),
+        body: JSON.stringify({ form: formData }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.success) throw new Error(data.error || "Submission failed");
@@ -827,23 +826,26 @@ export function AddEmployeeWizard({ prefill, submitUrl, onSubmitted }: AddEmploy
 
             {/* Digital Signature & Date */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-              <div className="sm:col-span-2">
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  Signature *
-                </label>
-                <SignaturePad onChange={(v) => { setStepError(null); setSignatureImage(v); }} />
-              </div>
+              <label className="sm:col-span-2 flex items-start gap-3 p-3 rounded-md border border-borderline bg-slate-50 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.declaration === "yes"}
+                  onChange={(e) => updateField("declaration", e.target.checked ? "yes" : "")}
+                  className="mt-0.5 w-5 h-5 rounded border-slate-300 text-indigo-600 shrink-0"
+                />
+                <span className="text-sm text-slate-700">I agree to the declaration above. *</span>
+              </label>
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  Full Name (under signature) *
+                  Your full name *
                 </label>
                 <input
                   type="text"
                   required
                   value={formData.signature}
                   onChange={(e) => updateField("signature", e.target.value)}
-                  placeholder="Type your full name"
+                  placeholder="Type your full name as your signature"
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-indigo-500"
                 />
               </div>

@@ -93,8 +93,8 @@ export function validateOnboardingStep(step: number, f: OnboardingData): string 
     if (t("incrementPercent") && !(Number(t("incrementPercent")) >= 0)) return "Increment percentage must be a number.";
   }
   if (step === 5) {
-    if (!t("signatureImage")) return "Please draw your signature in the box.";
-    if (!t("signature")) return "Please type your full name under the signature.";
+    if (t("declaration") !== "yes") return "Please tick the box to confirm the declaration.";
+    if (!t("signature")) return "Please type your full name.";
     if (!t("signDate") || !isIsoDate(t("signDate"))) return "Signature date is required.";
     if (f.politicalBackground === "Yes" && !t("politicalDetails")) return "Please give political affiliation details when you select Yes.";
   }

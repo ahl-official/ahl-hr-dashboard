@@ -59,6 +59,7 @@ export async function buildOnboardingPdf(input: PdfInput): Promise<Uint8Array> {
   pdf.setProducer("AHL HR Command Center");
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const script = await pdf.embedFont(StandardFonts.TimesRomanItalic);
   const byLabel = new Map(input.fields.map((f) => [f.label, f.value]));
   const used = new Set<string>();
 
@@ -115,15 +116,20 @@ export async function buildOnboardingPdf(input: PdfInput): Promise<Uint8Array> {
   need(dl.length * 12 + 110);
   dl.forEach((ln, i) => page.drawText(ln, { x: M + 8, y: y - 10 - i * 12, size: 9, font: regular, color: INK }));
   y -= dl.length * 12 + 14;
+  const signedName = pdfSafe(byLabel.get("Digital Signature") || input.fullName);
   if (input.signaturePng) {
     const sig = await pdf.embedPng(input.signaturePng);
     const sc = Math.min(180 / sig.width, 60 / sig.height);
     page.drawImage(sig, { x: M + 8, y: y - sig.height * sc, width: sig.width * sc, height: sig.height * sc });
     y -= sig.height * sc + 4;
-  } else y -= 40;
-  page.drawLine({ start: { x: M + 8, y }, end: { x: M + 200, y }, thickness: 0.6, color: INK });
-  page.drawText(pdfSafe(byLabel.get("Digital Signature") || input.fullName), { x: M + 8, y: y - 12, size: 9.5, font: bold, color: INK });
-  page.drawText(`Date: ${pdfSafe(byLabel.get("Date") || "")}`, { x: M + 8, y: y - 25, size: 9, font: regular, color: MUTED });
+  } else {
+    // signed by typing the name: shown in a signature-style italic
+    page.drawText(signedName, { x: M + 8, y: y - 28, size: 20, font: script, color: INK });
+    y -= 36;
+  }
+  page.drawLine({ start: { x: M + 8, y }, end: { x: M + 220, y }, thickness: 0.6, color: INK });
+  page.drawText(signedName, { x: M + 8, y: y - 12, size: 9.5, font: bold, color: INK });
+  page.drawText(`Declaration accepted online on ${pdfSafe(byLabel.get("Date") || "")}`, { x: M + 8, y: y - 25, size: 9, font: regular, color: MUTED });
 
   // Footer on every page
   const pages = pdf.getPages();

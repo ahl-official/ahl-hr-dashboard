@@ -68,13 +68,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
     };
     if (!form.fullName?.trim()) form.fullName = invite.name;
 
-    const sigMatch = String(body.signatureImage ?? "").match(/^data:image\/png;base64,([A-Za-z0-9+/=]+)$/);
     for (const step of [1, 2, 3, 5]) {
-      const problem = validateOnboardingStep(step, { ...form, signatureImage: sigMatch ? "yes" : "" });
+      const problem = validateOnboardingStep(step, form);
       if (problem) throw new ValidationError(problem);
     }
-    const signature = sigMatch ? Buffer.from(sigMatch[1], "base64") : null;
-    if (signature && signature.length > 300_000) throw new ValidationError("Signature image is too large.");
 
     // claim the invitation so a double-click cannot create two employees
     await setInviteFields(invite.rowNumber, { Status: "Processing" });
@@ -93,7 +90,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
       }
       const pdf = await buildOnboardingPdf({
         company: employee.company, employeeId: employee.employeeId, fullName: employee.fullName,
-        fields: buildMasterFields(form, employee.employeeId), signaturePng: signature, logo: logoData,
+        fields: buildMasterFields(form, employee.employeeId), logo: logoData,
       });
       const fileName = `${employee.fullName} - Employee Form.pdf`;
       const up = await uploadHrAttachment({ name: fileName, mimeType: "application/pdf", base64: Buffer.from(pdf).toString("base64") }, employee.fullName, employee.employeeKey, invite.inviteId);
