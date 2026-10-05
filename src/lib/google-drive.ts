@@ -1,6 +1,7 @@
 import "server-only";
 
 import { googleRequest } from "./google-auth";
+import { CONFIG } from "./config";
 
 const DRIVE_BASE = "https://www.googleapis.com/drive/v3";
 const UPLOAD_BASE = "https://www.googleapis.com/upload/drive/v3";
@@ -42,7 +43,6 @@ async function createEmployeeFolder(folderName: string) {
 }
 
 export async function uploadHrAttachment(attachment: AttachmentPayload, employeeName: string, employeeKey: string, recordId: string) {
-  if (!DOCUMENTS_FOLDER_ID) throw new Error("HR_DOCUMENTS_FOLDER_ID is not configured.");
   if (!attachment?.base64) throw new Error("Attachment data is missing.");
   if (!ALLOWED_MIME.has(attachment.mimeType)) throw new Error("Only PDF, Word, PNG, and JPG attachments are allowed.");
   const bytes = Buffer.from(attachment.base64.replace(/^data:[^;]+;base64,/, ""), "base64");
@@ -52,7 +52,7 @@ export async function uploadHrAttachment(attachment: AttachmentPayload, employee
 
   // Preferred path: the Apps Script uploader. A Google service account has no Drive storage of its own,
   // so the file is saved by a script that runs as the HR Drive owner.
-  if (process.env.DRIVE_UPLOADER_URL) {
+  if (CONFIG.driveUploaderUrl) {
     // Google sometimes loses the reply to a POST even though the file was saved. The script is idempotent
     // (same file name = same file), so retrying is safe.
     const payload = JSON.stringify({
@@ -65,7 +65,7 @@ export async function uploadHrAttachment(attachment: AttachmentPayload, employee
     let out: { ok?: boolean; fileId?: string; url?: string; error?: string } | null = null;
     for (let attempt = 1; attempt <= 4 && !out; attempt++) {
       try {
-        const res = await fetch(process.env.DRIVE_UPLOADER_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: payload, signal: AbortSignal.timeout(45000) });
+        const res = await fetch(CONFIG.driveUploaderUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: payload, signal: AbortSignal.timeout(45000) });
         out = JSON.parse(await res.text());
         // a reply with neither a file nor an error is a stray/lost reply, not an answer: ask again
         if (out && !out.fileId && !out.error) out = null;
@@ -80,6 +80,7 @@ export async function uploadHrAttachment(attachment: AttachmentPayload, employee
     return { fileName: attachment.name, driveFileId: out.fileId, driveLink: out.url || `https://drive.google.com/file/d/${out.fileId}/view` };
   }
 
+  if (!DOCUMENTS_FOLDER_ID) throw new Error("HR_DOCUMENTS_FOLDER_ID is not configured.");
   const parentId = await findEmployeeFolder(folderName) || await createEmployeeFolder(folderName);
   const fileName = `${safeName(recordId)} - ${safeName(attachment.name)}`;
   const form = new FormData();
