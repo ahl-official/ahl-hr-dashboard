@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { ArrowLeft, ArrowRight, BellRing, CheckCircle2, Clock, Copy, Loader2, MonitorSmartphone, Send, ShieldCheck, Smartphone } from "lucide-react";
 import { COMPANIES } from "@/lib/constants";
 import { formatDateTime } from "@/lib/date-utils";
@@ -43,6 +44,15 @@ const OPTIONS: Array<{ mode: Mode; icon: typeof Send; title: string; blurb: stri
 ];
 
 export default function AddEmployeePage() {
+  return (
+    <Suspense fallback={<p className="py-20 text-center text-sm text-muted">Loading...</p>}>
+      <AddEmployeeForm />
+    </Suspense>
+  );
+}
+
+function AddEmployeeForm() {
+  const searchParams = useSearchParams();
   const [mode, setMode] = useState<Mode | null>(null);
   const [form, setForm] = useState(EMPTY);
   const [departments, setDepartments] = useState<string[]>([]);
@@ -56,7 +66,19 @@ export default function AddEmployeePage() {
   useEffect(() => {
     fetch("/api/meta/departments").then((r) => r.json()).then((d) => setDepartments((d?.data ?? []).map((x: any) => x.departmentName))).catch(() => {});
     loadInvites();
-  }, []);
+
+    const nameParam = searchParams.get("name");
+    const mobileParam = searchParams.get("mobile");
+    const designationParam = searchParams.get("designation");
+    if (nameParam || mobileParam || designationParam) {
+      setForm((f) => ({
+        ...f,
+        name: nameParam || f.name,
+        mobile: mobileParam || f.mobile,
+        designation: designationParam || f.designation,
+      }));
+    }
+  }, [searchParams]);
 
   const set = (k: keyof typeof EMPTY, v: string) => { setError(""); setForm((f) => ({ ...f, [k]: v })); };
 

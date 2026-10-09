@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   Calendar,
   Plug,
+  UserCheck,
   type LucideIcon,
 } from "lucide-react";
 
@@ -61,6 +62,7 @@ export function Shell({
       title: "People Operations",
       items: [
         { id: "records", label: "HR Records", icon: FileText, badge: recordsCount > 0 ? `${recordsCount}` : undefined },
+        { id: "recruitment", label: "Recruitment & Tests", icon: UserCheck },
         { id: "insights", label: "Insights", icon: BarChart3 },
       ],
     },

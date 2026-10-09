@@ -17,6 +17,9 @@ import {
   Clock,
   ExternalLink,
   AlertTriangle,
+  MessageCircle,
+  Sparkles,
+  Copy,
 } from "lucide-react";
 import { EmployeeSummary, DocumentRecord, MeetingRecord } from "@/types";
 import { initials, formatExactTenure, formatDisplayDate, getTodayLocalIsoDate } from "@/lib/date-utils";
@@ -42,6 +45,57 @@ export function EmployeeProfileDrawer({
   onOpenStatus,
 }: EmployeeProfileDrawerProps) {
   const [unmasked, setUnmasked] = useState(false);
+  const [discInfo, setDiscInfo] = useState<any | null>(null);
+  const [loadingDisc, setLoadingDisc] = useState(false);
+  const [sendingDisc, setSendingDisc] = useState(false);
+  const [copiedDisc, setCopiedDisc] = useState(false);
+
+  useEffect(() => {
+    if (!employee) return;
+    const empId = employee.employeeId || employee.employeeKey;
+    setLoadingDisc(true);
+    fetch(`/api/recruitment/disc?id=${encodeURIComponent(empId)}&entityType=Employee`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success) setDiscInfo(d.data);
+        else setDiscInfo(null);
+      })
+      .catch(() => setDiscInfo(null))
+      .finally(() => setLoadingDisc(false));
+  }, [employee]);
+
+  const handleSendDiscInvite = async () => {
+    if (!employee) return;
+    setSendingDisc(true);
+    const empId = employee.employeeId || employee.employeeKey;
+    try {
+      const res = await fetch("/api/recruitment/employee-disc", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ employeeId: empId }),
+      });
+      const json = await res.json();
+      if (json.success && json.data?.results?.[0]?.whatsappLink) {
+        window.open(json.data.results[0].whatsappLink, "_blank");
+      }
+      const refreshed = await fetch(`/api/recruitment/disc?id=${encodeURIComponent(empId)}&entityType=Employee`);
+      const rJson = await refreshed.json();
+      if (rJson.success) setDiscInfo(rJson.data);
+    } catch (e) {
+      alert("Failed to send DISC invite");
+    } finally {
+      setSendingDisc(false);
+    }
+  };
+
+  const handleCopyDiscLink = () => {
+    if (!employee) return;
+    const empId = employee.employeeId || employee.employeeKey;
+    const url = `${window.location.origin}/psychometric/${encodeURIComponent(empId)}?entity=Employee`;
+    navigator.clipboard.writeText(url);
+    setCopiedDisc(true);
+    setTimeout(() => setCopiedDisc(false), 2000);
+  };
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -322,6 +376,77 @@ export function EmployeeProfileDrawer({
               <User className="w-3.5 h-3.5" />
               <span>Status</span>
             </button>
+          </div>
+
+          {/* DISC Behavioral Assessment Quick Card */}
+          <div className="p-4 rounded-2xl bg-indigo-50/50 border border-indigo-100 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-md bg-indigo-100 text-indigo-700 flex items-center justify-center">
+                  <Sparkles className="w-3.5 h-3.5" />
+                </div>
+                <span className="text-xs font-bold text-navy-DEFAULT uppercase tracking-wider">
+                  DISC Personality & Behavior
+                </span>
+              </div>
+
+              {loadingDisc ? (
+                <span className="text-[10px] text-muted">Checking...</span>
+              ) : discInfo?.status === "Completed" ? (
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-indigo-100 text-indigo-800 border border-indigo-200">
+                  {discInfo.discProfile || "Completed"}
+                </span>
+              ) : discInfo?.status === "Pending" ? (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
+                  Invite Sent
+                </span>
+              ) : (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-200 text-slate-700">
+                  Not Sent
+                </span>
+              )}
+            </div>
+
+            {discInfo?.status === "Completed" ? (
+              <div className="bg-white p-3 rounded-xl border border-indigo-100 space-y-2 text-xs">
+                <p className="text-slate-700 leading-relaxed text-[11px]">
+                  {discInfo.discSummary || "Strong behavioral alignment with organizational workflows."}
+                </p>
+                <div className="grid grid-cols-4 gap-1 text-center font-bold text-[11px] pt-1">
+                  <span className="text-rose-600 bg-rose-50 py-1 rounded">D: {discInfo.discD}%</span>
+                  <span className="text-amber-600 bg-amber-50 py-1 rounded">I: {discInfo.discI}%</span>
+                  <span className="text-emerald-600 bg-emerald-50 py-1 rounded">S: {discInfo.discS}%</span>
+                  <span className="text-sky-600 bg-sky-50 py-1 rounded">C: {discInfo.discC}%</span>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between gap-2 pt-1">
+                <p className="text-[11px] text-slate-600">
+                  {discInfo?.status === "Pending"
+                    ? "Assessment link sent to employee."
+                    : "Employee has not yet taken the DISC assessment."}
+                </p>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={handleCopyDiscLink}
+                    title="Copy Test Link"
+                    className="p-1.5 rounded-lg border border-indigo-200 bg-white hover:bg-slate-50 text-slate-700 text-xs transition"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    disabled={sendingDisc}
+                    onClick={handleSendDiscInvite}
+                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-xs transition"
+                  >
+                    <MessageCircle className="w-3.5 h-3.5" />
+                    {discInfo?.status === "Pending" ? "Resend Invite" : "Send WhatsApp"}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Required HR Documents Checklist */}

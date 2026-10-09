@@ -17,6 +17,7 @@ const TITLES: Record<string, string> = {
   "add-employee": "Add Employee",
   calendar: "HR Calendar",
   records: "HR Records",
+  recruitment: "Recruitment & AI Tests",
   insights: "Insights",
 };
 
@@ -25,6 +26,7 @@ const SUBTITLES: Record<string, string> = {
   "add-employee": "Invite a new joiner to fill in their onboarding form",
   calendar: "Reviews, meetings, follow-ups and birthdays",
   records: "Meetings, warnings and follow-up records",
+  recruitment: "AI-tailored technical assessments, candidate evaluations, and integrity tracking",
   insights: "Workforce analytics and data quality",
 };
 
@@ -60,7 +62,7 @@ function Frame({ children }: { children: React.ReactNode }) {
       />
 
       <main className="p-4 sm:p-8 max-w-7xl mx-auto w-full flex-1">
-        {!["records", "add-employee"].includes(activeSection) && (
+        {!["records", "add-employee", "recruitment"].includes(activeSection) && (
           <div className="sticky top-16 z-20 bg-canvas -mx-4 sm:-mx-8 px-4 sm:px-8 pt-1 pb-3 mb-3">
             <GlobalFilters
               filters={d.filters}
