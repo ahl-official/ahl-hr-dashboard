@@ -56,6 +56,10 @@ HR staff ──▶ HR Dashboard (Next.js, on Vercel)  ──▶  Main sheet "HR 
 - Old form (copy 2): https://script.google.com/d/1wLQ9CaPmr4LXjCfJvY_oj6pososPThGQQAfGR_ZaEKKElfSJFHfXwj6E/edit
 - Old form (copy 3): https://script.google.com/d/11pWr3fYVVO064hfMBD-9ORIrHyXeTAT2TGGshRoy0PpxFvn8n1eBvAhJ/edit
 - HR Dashboard v1: https://script.google.com/d/17bYS7xucfqmM4-CDXkGEOJMWvpbOBT9M_1pO6ZacCqZdqp9vM48GI2Mg/edit
+- **HR System FMS** (Candidate FMS, Requisitions, Problems, Trainings, Leaves): https://script.google.com/d/1vEcnQOg5IqpZcnu4pZbsh0nJsVR1rKViF0EERcO3i_YHo9zLDVBB2sNG/edit
+  - Spreadsheet: https://docs.google.com/spreadsheets/d/1LVl3-5f8vLGt7YRTbmquUR09UFJgb9J0lTn7XSGc7OM/edit
+  - Backup in repo: `Next UI/apps-script/hr-system-fms` (being integrated natively into the Next.js dashboard)
+
 
 ### Other scripts in the same Google account (not part of this project)
 Gallabox WhatsApp, WAHA Export Code, WAHA Test Code, OTP Meta code, Sales Trainer AHL, VSL Autofill Code,

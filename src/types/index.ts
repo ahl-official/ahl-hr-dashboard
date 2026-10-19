@@ -170,3 +170,6 @@ export interface DashboardApiResponse {
   documents: DocumentRecord[];
   statuses: StatusRecord[];
 }
+
+export * from "./fms";
+
