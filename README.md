@@ -66,3 +66,4 @@ For full system onboarding and key architectures, please read:
 - [`docs/HANDOVER.md`](docs/HANDOVER.md) — System handover, service accounts, and environment variables.
 - [`docs/APPS_SCRIPTS.md`](docs/APPS_SCRIPTS.md) — Complete overview of Apps Scripts and their status.
 - [`docs/FMS_INTEGRATION_MASTER_PLAN.md`](docs/FMS_INTEGRATION_MASTER_PLAN.md) — Comprehensive plan for native FMS capabilities.
+- [`docs/FMS_IMPLEMENTATION_GUIDE.md`](docs/FMS_IMPLEMENTATION_GUIDE.md) — Step-by-step developer implementation guide (temporary; delete after implementation).
