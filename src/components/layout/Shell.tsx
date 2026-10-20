@@ -11,6 +11,8 @@ import {
   Calendar,
   Plug,
   UserCheck,
+  Briefcase,
+  Sparkles,
   type LucideIcon,
 } from "lucide-react";
 
@@ -62,7 +64,8 @@ export function Shell({
       title: "People Operations",
       items: [
         { id: "records", label: "HR Records", icon: FileText, badge: recordsCount > 0 ? `${recordsCount}` : undefined },
-        { id: "recruitment", label: "Recruitment & Tests", icon: UserCheck },
+        { id: "recruitment", label: "Recruitment", icon: Briefcase },
+        { id: "ai-tests", label: "AI Tests", icon: Sparkles },
         { id: "insights", label: "Insights", icon: BarChart3 },
       ],
     },
