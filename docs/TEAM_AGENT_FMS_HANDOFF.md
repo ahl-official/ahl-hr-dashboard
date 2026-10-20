@@ -4,7 +4,7 @@
 > **Repository**: `HR_Dashboard/Next UI`  
 > **Node/Framework**: Next.js 16.3 (Turbopack, App Router), React 19, TypeScript (strict), Tailwind CSS.  
 > **Status**: Feature 1 (Job Requisitions) & Sidebar Split are **COMPLETED**. Features 2–8 are queued for implementation.  
-> **Cleanup Notice**: *Once all features below are implemented, tested, and deployed to production, this file can safely be deleted (`git rm docs/TEAM_AGENT_FMS_HANDOFF.md`).*
+> **Cleanup Rule**: *When all remaining features are implemented, tested, and verified, the AI agent **MUST inform the engineer/user and ask for explicit permission** before deleting this file (`git rm docs/TEAM_AGENT_FMS_HANDOFF.md`). Never delete this file automatically without user confirmation.*
 
 ---
 
@@ -213,11 +213,18 @@ npm run build
 
 ---
 
-## 6. Git Hygiene
+## 6. Git Hygiene & Final Cleanup Protocol
 - Commit messages should be structured: `feat(fms): implement <feature-name> with tests and local store`
 - Never commit `.env` or sensitive credentials.
-- After all features are live and verified, remove this file:
+
+### ⚠️ Final Step When All Tasks Are Done:
+When all features (2 through 8) are completely finished, all tests pass, and the user has tested locally:
+1. **DO NOT delete this file automatically.**
+2. **Inform the engineer/user** that all 8 features are finished and verified.
+3. **Ask for explicit permission**: *"All 8 FMS features are implemented and tested. May I now remove the temporary handoff file `docs/TEAM_AGENT_FMS_HANDOFF.md`?"*
+4. **Only after the user approves**, run:
 ```bash
 git rm docs/TEAM_AGENT_FMS_HANDOFF.md
 git commit -m "chore: cleanup fms implementation handoff playbook after feature rollout"
+git push origin main
 ```

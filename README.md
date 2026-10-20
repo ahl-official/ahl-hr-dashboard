@@ -65,5 +65,14 @@ npm run dev
 For full system onboarding and key architectures, please read:
 - [`docs/HANDOVER.md`](docs/HANDOVER.md) — System handover, service accounts, and environment variables.
 - [`docs/APPS_SCRIPTS.md`](docs/APPS_SCRIPTS.md) — Complete overview of Apps Scripts and their status.
+- [`docs/TEAM_AGENT_FMS_HANDOFF.md`](docs/TEAM_AGENT_FMS_HANDOFF.md) — **Active Handoff Playbook** for teammates & AI agents implementing Features 2–8.
 - [`docs/FMS_INTEGRATION_MASTER_PLAN.md`](docs/FMS_INTEGRATION_MASTER_PLAN.md) — Comprehensive plan for native FMS capabilities.
-- [`docs/FMS_IMPLEMENTATION_GUIDE.md`](docs/FMS_IMPLEMENTATION_GUIDE.md) — Step-by-step developer implementation guide (temporary; delete after implementation).
+
+### ⚠️ Note for AI Coding Agents on `docs/TEAM_AGENT_FMS_HANDOFF.md`:
+When all 8 FMS features are fully implemented, tested (`npx tsc --noEmit`, `npm test`, `npm run build`), and verified locally:
+> **The AI Agent MUST NOT delete the handoff file automatically.**  
+> The agent **MUST inform the user** that all tasks are finished and **request explicit permission** to delete the handoff file:
+> ```bash
+> git rm docs/TEAM_AGENT_FMS_HANDOFF.md
+> git commit -m "chore: cleanup fms handoff playbook after feature rollout"
+> ```
