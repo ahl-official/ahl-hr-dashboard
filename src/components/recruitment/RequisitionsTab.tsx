@@ -23,11 +23,13 @@ import {
   RefreshCw,
   ExternalLink,
   SlidersHorizontal,
+  Edit3,
 } from "lucide-react";
 import type { FmsRequisition } from "@/types/fms";
 
 interface RequisitionsTabProps {
   onSelectRequisition?: (req: FmsRequisition) => void;
+  onAddCandidateForReq?: (req: FmsRequisition) => void;
 }
 
 const DEPARTMENTS_LIST = [
@@ -43,7 +45,10 @@ const DEPARTMENTS_LIST = [
   "Operations & Maintenance",
 ];
 
-export default function RequisitionsTab({ onSelectRequisition }: RequisitionsTabProps) {
+export default function RequisitionsTab({
+  onSelectRequisition,
+  onAddCandidateForReq,
+}: RequisitionsTabProps) {
   const [requisitions, setRequisitions] = useState<FmsRequisition[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -65,6 +70,31 @@ export default function RequisitionsTab({ onSelectRequisition }: RequisitionsTab
   // Edit / Details Modal state
   const [selectedReq, setSelectedReq] = useState<FmsRequisition | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [isEditingSelectedReq, setIsEditingSelectedReq] = useState(false);
+  const [savingEditReq, setSavingEditReq] = useState(false);
+  const [editReqForm, setEditReqForm] = useState<Partial<FmsRequisition>>({});
+
+  const handleOpenManageModal = (req: FmsRequisition) => {
+    setSelectedReq(req);
+    setIsEditingSelectedReq(false);
+    setEditReqForm({
+      jobTitle: req.jobTitle || "",
+      department: req.department || "Salon Operations",
+      brand: req.brand || "ahl",
+      openings: req.openings || 1,
+      priority: req.priority || "Medium",
+      minExp: req.minExp || "1",
+      maxExp: req.maxExp || "4",
+      budget: req.budget || "",
+      workLocation: req.workLocation || req.location || "Mumbai",
+      hiringManager: req.hiringManager || "",
+      recruiterName: req.recruiterName || "",
+      targetStart: req.targetStart || "",
+      reason: req.reason || "New Headcount",
+      requiredSkills: req.requiredSkills || "",
+      jobDescription: req.jobDescription || "",
+    });
+  };
 
   // Form State
   const [formTitle, setFormTitle] = useState("");
@@ -221,6 +251,34 @@ export default function RequisitionsTab({ onSelectRequisition }: RequisitionsTab
       console.error("Status update error:", err);
     } finally {
       setUpdatingStatus(false);
+    }
+  };
+
+  const handleSaveEditReq = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedReq) return;
+    setSavingEditReq(true);
+    try {
+      const res = await fetch("/api/recruitment/requisitions", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: selectedReq.id,
+          updates: editReqForm,
+        }),
+      });
+      const json = await res.json();
+      if (json.success && json.data) {
+        setRequisitions((prev) =>
+          prev.map((r) => (r.id === selectedReq.id ? { ...r, ...editReqForm } : r))
+        );
+        setSelectedReq((prev) => (prev ? { ...prev, ...editReqForm } : null));
+        setIsEditingSelectedReq(false);
+      }
+    } catch (err) {
+      console.error("Save edit req error:", err);
+    } finally {
+      setSavingEditReq(false);
     }
   };
 
@@ -592,7 +650,7 @@ export default function RequisitionsTab({ onSelectRequisition }: RequisitionsTab
                   </div>
 
                   <button
-                    onClick={() => setSelectedReq(req)}
+                    onClick={() => handleOpenManageModal(req)}
                     className="text-xs font-semibold text-primary hover:text-navy hover:underline flex items-center gap-1 cursor-pointer"
                   >
                     <span>View / Manage</span>
@@ -663,8 +721,8 @@ export default function RequisitionsTab({ onSelectRequisition }: RequisitionsTab
                     </td>
                     <td className="py-3.5 px-4 text-right">
                       <button
-                        onClick={() => setSelectedReq(req)}
-                        className="text-xs text-primary font-semibold hover:underline"
+                        onClick={() => handleOpenManageModal(req)}
+                        className="text-xs text-primary font-semibold hover:underline cursor-pointer"
                       >
                         Manage
                       </button>
@@ -904,136 +962,423 @@ export default function RequisitionsTab({ onSelectRequisition }: RequisitionsTab
       {/* ────────────────────────────────────────────────────────── */}
       {/* MODAL: VIEW / MANAGE DETAILS */}
       {/* ────────────────────────────────────────────────────────── */}
+      {/* ────────────────────────────────────────────────────────── */}
+      {/* MODAL: VIEW / MANAGE DETAILS */}
+      {/* ────────────────────────────────────────────────────────── */}
       {selectedReq && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-navy/40 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-surface rounded-2xl border border-borderline shadow-2xl max-w-lg w-full overflow-hidden">
-            <div className="p-5 border-b border-borderline flex items-center justify-between">
-              <div>
-                <span className="text-xs font-mono font-bold text-primary bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
-                  {selectedReq.id}
-                </span>
-                <h3 className="text-base font-bold text-navy mt-1">{selectedReq.jobTitle}</h3>
-              </div>
-              <button
-                onClick={() => setSelectedReq(null)}
-                className="text-muted hover:text-navy p-1 rounded-lg hover:bg-canvas"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-4 text-xs">
-              {/* Status & Change Status */}
-              <div className="bg-canvas p-3.5 rounded-xl border border-borderline flex items-center justify-between">
-                <div>
-                  <span className="text-[10px] text-muted uppercase font-bold block">Status</span>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-navy/50 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-surface rounded-2xl border border-borderline shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150">
+            {/* Modal Header (Fixed) */}
+            <div className="p-5 border-b border-borderline flex items-start justify-between gap-3 bg-canvas/40 shrink-0">
+              <div className="space-y-1 min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-mono font-bold text-primary bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
+                    {selectedReq.id}
+                  </span>
                   <span
-                    className={`text-xs font-bold ${
-                      selectedReq.status.toLowerCase() === "open"
-                        ? "text-emerald-700"
-                        : selectedReq.status.toLowerCase() === "filled"
-                        ? "text-blue-700"
-                        : "text-slate-600"
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${
+                      selectedReq.brand === "alchamae"
+                        ? "bg-purple-50 text-purple-700 border border-purple-200"
+                        : "bg-blue-50 text-blue-700 border border-blue-200"
                     }`}
                   >
-                    {selectedReq.status}
+                    {selectedReq.brand === "alchamae" ? "Al-Chamae" : "AHL"}
+                  </span>
+                  <span
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                      selectedReq.priority === "High"
+                        ? "bg-rose-50 text-rose-700 border border-rose-200"
+                        : selectedReq.priority === "Medium"
+                        ? "bg-amber-50 text-amber-700 border border-amber-200"
+                        : "bg-slate-100 text-slate-700 border border-slate-200"
+                    }`}
+                  >
+                    {selectedReq.priority} Priority
+                  </span>
+                  <span
+                    className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${
+                      selectedReq.status.toLowerCase() === "open"
+                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                        : selectedReq.status.toLowerCase() === "filled"
+                        ? "bg-blue-50 text-blue-700 border-blue-200"
+                        : selectedReq.status.toLowerCase() === "on hold"
+                        ? "bg-amber-50 text-amber-700 border-amber-200"
+                        : "bg-slate-100 text-slate-600 border-slate-300"
+                    }`}
+                  >
+                    ● {selectedReq.status}
                   </span>
                 </div>
-
-                <div className="flex gap-1.5">
-                  <button
-                    disabled={updatingStatus || selectedReq.status === "Open"}
-                    onClick={() => handleUpdateStatus(selectedReq.id, "Open")}
-                    className="px-2.5 py-1 text-[11px] font-semibold rounded bg-emerald-100 text-emerald-800 hover:bg-emerald-200 disabled:opacity-40"
-                  >
-                    Set Open
-                  </button>
-                  <button
-                    disabled={updatingStatus || selectedReq.status === "Filled"}
-                    onClick={() => handleUpdateStatus(selectedReq.id, "Filled")}
-                    className="px-2.5 py-1 text-[11px] font-semibold rounded bg-blue-100 text-blue-800 hover:bg-blue-200 disabled:opacity-40"
-                  >
-                    Set Filled
-                  </button>
-                  <button
-                    disabled={updatingStatus || selectedReq.status === "Cancelled"}
-                    onClick={() => handleUpdateStatus(selectedReq.id, "Cancelled")}
-                    className="px-2.5 py-1 text-[11px] font-semibold rounded bg-slate-200 text-slate-800 hover:bg-slate-300 disabled:opacity-40"
-                  >
-                    Cancel
-                  </button>
-                </div>
+                <h3 className="text-lg font-bold text-navy truncate">{selectedReq.jobTitle}</h3>
+                <p className="text-xs text-muted flex items-center gap-2">
+                  <span>{selectedReq.department}</span>
+                  <span>•</span>
+                  <span>{selectedReq.workLocation || selectedReq.location || "Mumbai"}</span>
+                </p>
               </div>
 
-              {/* Details grid */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <span className="text-muted block text-[10px] uppercase font-semibold">Department</span>
-                  <span className="font-semibold text-navy">{selectedReq.department}</span>
-                </div>
-                <div>
-                  <span className="text-muted block text-[10px] uppercase font-semibold">Brand</span>
-                  <span className="font-semibold text-navy uppercase">{selectedReq.brand}</span>
-                </div>
-                <div>
-                  <span className="text-muted block text-[10px] uppercase font-semibold">Openings</span>
-                  <span className="font-semibold text-navy">{selectedReq.openings || 1}</span>
-                </div>
-                <div>
-                  <span className="text-muted block text-[10px] uppercase font-semibold">Priority</span>
-                  <span className="font-semibold text-navy">{selectedReq.priority}</span>
-                </div>
-                <div>
-                  <span className="text-muted block text-[10px] uppercase font-semibold">Experience</span>
-                  <span className="font-semibold text-navy">
-                    {selectedReq.minExp || "0"} - {selectedReq.maxExp || "3"} Yrs
-                  </span>
-                </div>
-                <div>
-                  <span className="text-muted block text-[10px] uppercase font-semibold">Budget</span>
-                  <span className="font-semibold text-navy">{selectedReq.budget || "Not specified"}</span>
-                </div>
-                <div>
-                  <span className="text-muted block text-[10px] uppercase font-semibold">Location</span>
-                  <span className="font-semibold text-navy">
-                    {selectedReq.workLocation || selectedReq.location || "Mumbai"}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-muted block text-[10px] uppercase font-semibold">Hiring Manager</span>
-                  <span className="font-semibold text-navy">{selectedReq.hiringManager || "—"}</span>
-                </div>
-              </div>
-
-              {selectedReq.requiredSkills && (
-                <div>
-                  <span className="text-muted block text-[10px] uppercase font-semibold mb-1">Required Skills</span>
-                  <div className="flex flex-wrap gap-1">
-                    {selectedReq.requiredSkills.split(",").map((s, idx) => (
-                      <span key={idx} className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[11px]">
-                        {s.trim()}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {selectedReq.jobDescription && (
-                <div>
-                  <span className="text-muted block text-[10px] uppercase font-semibold mb-1">Description / Notes</span>
-                  <p className="text-slate-700 bg-canvas p-2.5 rounded-lg border border-borderline leading-relaxed">
-                    {selectedReq.jobDescription}
-                  </p>
-                </div>
-              )}
-
-              <div className="pt-3 border-t border-borderline flex justify-end">
+              <div className="flex items-center gap-1.5 shrink-0">
                 <button
-                  onClick={() => setSelectedReq(null)}
-                  className="px-4 py-1.5 font-semibold bg-slate-100 text-navy rounded-lg hover:bg-slate-200"
+                  type="button"
+                  onClick={() => setIsEditingSelectedReq(!isEditingSelectedReq)}
+                  className={`px-3 py-1.5 rounded-lg border font-semibold text-xs flex items-center gap-1.5 transition-colors cursor-pointer ${
+                    isEditingSelectedReq
+                      ? "bg-primary text-white border-primary shadow-xs"
+                      : "bg-white border-borderline text-navy hover:bg-slate-50"
+                  }`}
+                  title={isEditingSelectedReq ? "Cancel Editing" : "Edit Requisition Details"}
                 >
-                  Close
+                  <Edit3 className="w-3.5 h-3.5" />
+                  <span>{isEditingSelectedReq ? "Done Editing" : "Edit"}</span>
                 </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedReq(null);
+                    setIsEditingSelectedReq(false);
+                  }}
+                  className="text-muted hover:text-navy p-1.5 rounded-lg hover:bg-canvas transition-colors cursor-pointer"
+                  title="Close"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body (Scrollable!) */}
+            <div className="p-6 space-y-5 text-xs overflow-y-auto flex-1 min-h-0">
+              {/* Status Quick Switcher Bar */}
+              <div className="bg-canvas p-3 rounded-xl border border-borderline flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-muted uppercase font-bold tracking-wider">Quick Status:</span>
+                  <span className="font-bold text-navy">{selectedReq.status}</span>
+                </div>
+
+                <div className="flex flex-wrap gap-1.5">
+                  {(["Open", "Filled", "On Hold", "Cancelled"] as const).map((st) => (
+                    <button
+                      key={st}
+                      type="button"
+                      disabled={updatingStatus || selectedReq.status === st}
+                      onClick={() => handleUpdateStatus(selectedReq.id, st)}
+                      className={`px-2.5 py-1 text-[11px] font-semibold rounded-lg border transition-all cursor-pointer disabled:opacity-40 ${
+                        selectedReq.status === st
+                          ? "bg-primary text-white border-primary shadow-2xs font-bold"
+                          : "bg-white border-borderline text-slate-700 hover:bg-slate-100"
+                      }`}
+                    >
+                      {st}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* VIEW MODE vs EDIT MODE */}
+              {!isEditingSelectedReq ? (
+                <>
+                  {/* Top Key Metric Highlights (4 Cards) */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="bg-canvas p-3 rounded-xl border border-borderline flex flex-col justify-between">
+                      <span className="text-[10px] text-muted uppercase font-semibold">Openings</span>
+                      <span className="text-base font-bold text-navy mt-1">{selectedReq.openings || 1} Positions</span>
+                    </div>
+                    <div className="bg-canvas p-3 rounded-xl border border-borderline flex flex-col justify-between">
+                      <span className="text-[10px] text-muted uppercase font-semibold">Experience</span>
+                      <span className="text-base font-bold text-navy mt-1">
+                        {selectedReq.minExp || "0"} - {selectedReq.maxExp || "3"} Yrs
+                      </span>
+                    </div>
+                    <div className="bg-canvas p-3 rounded-xl border border-borderline flex flex-col justify-between">
+                      <span className="text-[10px] text-muted uppercase font-semibold">Budget / CTC</span>
+                      <span className="text-base font-bold text-navy mt-1 truncate">
+                        {selectedReq.budget || "Not Specified"}
+                      </span>
+                    </div>
+                    <div className="bg-canvas p-3 rounded-xl border border-borderline flex flex-col justify-between">
+                      <span className="text-[10px] text-muted uppercase font-semibold">Target Start</span>
+                      <span className="text-base font-bold text-navy mt-1 truncate">
+                        {selectedReq.targetStart || "Immediate"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Role & Org Details Table */}
+                  <div className="bg-white rounded-xl border border-borderline overflow-hidden">
+                    <div className="px-4 py-2.5 bg-canvas border-b border-borderline font-bold text-navy text-xs">
+                      Requisition Information
+                    </div>
+                    <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <span className="text-muted block text-[10px] uppercase font-semibold">Department</span>
+                        <span className="font-semibold text-navy text-xs mt-0.5 block">{selectedReq.department}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted block text-[10px] uppercase font-semibold">Brand / Entity</span>
+                        <span className="font-semibold text-navy text-xs mt-0.5 block uppercase">
+                          {selectedReq.brand === "alchamae" ? "Al-Chamae" : "AHL (Hair Lounge)"}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-muted block text-[10px] uppercase font-semibold">Hiring Manager</span>
+                        <span className="font-semibold text-navy text-xs mt-0.5 block">
+                          {selectedReq.hiringManager || "—"}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-muted block text-[10px] uppercase font-semibold">Assigned Recruiter</span>
+                        <span className="font-semibold text-navy text-xs mt-0.5 block">
+                          {selectedReq.recruiterName || "—"}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-muted block text-[10px] uppercase font-semibold">Work Location</span>
+                        <span className="font-semibold text-navy text-xs mt-0.5 block">
+                          {selectedReq.workLocation || selectedReq.location || "Mumbai"}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-muted block text-[10px] uppercase font-semibold">Headcount Reason</span>
+                        <span className="font-semibold text-navy text-xs mt-0.5 block">
+                          {selectedReq.reason || "Growth / Expansion"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Skills Section */}
+                  {selectedReq.requiredSkills && (
+                    <div className="bg-white rounded-xl border border-borderline p-4 space-y-2">
+                      <span className="text-muted block text-[10px] uppercase font-semibold">Required Skills & Competencies</span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {selectedReq.requiredSkills.split(",").map((s, idx) => (
+                          <span
+                            key={idx}
+                            className="bg-indigo-50 border border-indigo-100 text-indigo-800 font-medium px-2.5 py-1 rounded-md text-[11px]"
+                          >
+                            {s.trim()}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Description Section */}
+                  {selectedReq.jobDescription && (
+                    <div className="bg-white rounded-xl border border-borderline p-4 space-y-2">
+                      <span className="text-muted block text-[10px] uppercase font-semibold">Job Description / Scope</span>
+                      <p className="text-slate-700 bg-canvas p-3 rounded-lg border border-borderline leading-relaxed whitespace-pre-line text-xs font-normal">
+                        {selectedReq.jobDescription}
+                      </p>
+                    </div>
+                  )}
+                </>
+              ) : (
+                /* EDIT FORM */
+                <form onSubmit={handleSaveEditReq} id="edit-req-form" className="space-y-4">
+                  <div className="bg-indigo-50/60 p-3 rounded-xl border border-indigo-100 text-[11px] text-indigo-900 font-medium">
+                    Modify requisition details below and click &quot;Save Changes&quot; to update immediately.
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="sm:col-span-2">
+                      <label className="text-muted block text-[10px] uppercase font-semibold mb-1">Job Title *</label>
+                      <input
+                        type="text"
+                        required
+                        value={editReqForm.jobTitle || ""}
+                        onChange={(e) => setEditReqForm({ ...editReqForm, jobTitle: e.target.value })}
+                        className="w-full px-3 py-2 bg-white border border-borderline rounded-lg text-navy font-semibold text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-muted block text-[10px] uppercase font-semibold mb-1">Department *</label>
+                      <select
+                        value={editReqForm.department || "Salon Operations"}
+                        onChange={(e) => setEditReqForm({ ...editReqForm, department: e.target.value })}
+                        className="w-full px-3 py-2 bg-white border border-borderline rounded-lg text-navy font-semibold text-xs cursor-pointer"
+                      >
+                        {DEPARTMENTS_LIST.map((d) => (
+                          <option key={d} value={d}>{d}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-muted block text-[10px] uppercase font-semibold mb-1">Brand *</label>
+                      <select
+                        value={editReqForm.brand || "ahl"}
+                        onChange={(e) => setEditReqForm({ ...editReqForm, brand: e.target.value as any })}
+                        className="w-full px-3 py-2 bg-white border border-borderline rounded-lg text-navy font-semibold text-xs cursor-pointer"
+                      >
+                        <option value="ahl">AHL (Hair Lounge)</option>
+                        <option value="alchamae">Al-Chamae Luxury</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-muted block text-[10px] uppercase font-semibold mb-1">Openings</label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={editReqForm.openings || 1}
+                        onChange={(e) => setEditReqForm({ ...editReqForm, openings: Number(e.target.value) })}
+                        className="w-full px-3 py-2 bg-white border border-borderline rounded-lg text-navy font-semibold text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-muted block text-[10px] uppercase font-semibold mb-1">Priority</label>
+                      <select
+                        value={editReqForm.priority || "Medium"}
+                        onChange={(e) => setEditReqForm({ ...editReqForm, priority: e.target.value as any })}
+                        className="w-full px-3 py-2 bg-white border border-borderline rounded-lg text-navy font-semibold text-xs cursor-pointer"
+                      >
+                        <option value="High">High</option>
+                        <option value="Medium">Medium</option>
+                        <option value="Low">Low</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-muted block text-[10px] uppercase font-semibold mb-1">Min Exp (Yrs)</label>
+                      <input
+                        type="text"
+                        value={editReqForm.minExp || ""}
+                        onChange={(e) => setEditReqForm({ ...editReqForm, minExp: e.target.value })}
+                        className="w-full px-3 py-2 bg-white border border-borderline rounded-lg text-navy text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-muted block text-[10px] uppercase font-semibold mb-1">Max Exp (Yrs)</label>
+                      <input
+                        type="text"
+                        value={editReqForm.maxExp || ""}
+                        onChange={(e) => setEditReqForm({ ...editReqForm, maxExp: e.target.value })}
+                        className="w-full px-3 py-2 bg-white border border-borderline rounded-lg text-navy text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-muted block text-[10px] uppercase font-semibold mb-1">Budget / Compensation</label>
+                      <input
+                        type="text"
+                        value={editReqForm.budget || ""}
+                        onChange={(e) => setEditReqForm({ ...editReqForm, budget: e.target.value })}
+                        placeholder="e.g. ₹35,000 - ₹50,000 / mo"
+                        className="w-full px-3 py-2 bg-white border border-borderline rounded-lg text-navy text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-muted block text-[10px] uppercase font-semibold mb-1">Work Location</label>
+                      <input
+                        type="text"
+                        value={editReqForm.workLocation || ""}
+                        onChange={(e) => setEditReqForm({ ...editReqForm, workLocation: e.target.value })}
+                        placeholder="e.g. Bandra Salon / Head Office"
+                        className="w-full px-3 py-2 bg-white border border-borderline rounded-lg text-navy text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-muted block text-[10px] uppercase font-semibold mb-1">Hiring Manager</label>
+                      <input
+                        type="text"
+                        value={editReqForm.hiringManager || ""}
+                        onChange={(e) => setEditReqForm({ ...editReqForm, hiringManager: e.target.value })}
+                        className="w-full px-3 py-2 bg-white border border-borderline rounded-lg text-navy text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-muted block text-[10px] uppercase font-semibold mb-1">Target Start Date</label>
+                      <input
+                        type="date"
+                        value={editReqForm.targetStart || ""}
+                        onChange={(e) => setEditReqForm({ ...editReqForm, targetStart: e.target.value })}
+                        className="w-full px-3 py-2 bg-white border border-borderline rounded-lg text-navy text-xs"
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="text-muted block text-[10px] uppercase font-semibold mb-1">Required Skills (comma separated)</label>
+                      <input
+                        type="text"
+                        value={editReqForm.requiredSkills || ""}
+                        onChange={(e) => setEditReqForm({ ...editReqForm, requiredSkills: e.target.value })}
+                        placeholder="Hair Cutting, Styling, Client Handling, Keratin..."
+                        className="w-full px-3 py-2 bg-white border border-borderline rounded-lg text-navy text-xs"
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="text-muted block text-[10px] uppercase font-semibold mb-1">Job Description</label>
+                      <textarea
+                        rows={3}
+                        value={editReqForm.jobDescription || ""}
+                        onChange={(e) => setEditReqForm({ ...editReqForm, jobDescription: e.target.value })}
+                        placeholder="Responsibilities and requirements..."
+                        className="w-full px-3 py-2 bg-white border border-borderline rounded-lg text-navy text-xs leading-relaxed"
+                      />
+                    </div>
+                  </div>
+                </form>
+              )}
+            </div>
+
+            {/* Modal Footer (Fixed) */}
+            <div className="p-4 sm:px-6 border-t border-borderline bg-canvas/70 flex flex-wrap items-center justify-between gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedReq(null);
+                  setIsEditingSelectedReq(false);
+                }}
+                className="px-4 py-2 font-semibold bg-white border border-borderline text-navy rounded-lg hover:bg-slate-100 cursor-pointer shadow-2xs"
+              >
+                Close
+              </button>
+
+              <div className="flex flex-wrap items-center gap-2">
+                {isEditingSelectedReq ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingSelectedReq(false)}
+                      className="px-3.5 py-2 font-semibold bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      form="edit-req-form"
+                      disabled={savingEditReq}
+                      className="px-4 py-2 font-semibold bg-primary text-white rounded-lg hover:bg-primary/95 flex items-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50"
+                    >
+                      {savingEditReq && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                      <span>Save Changes</span>
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    {onSelectRequisition && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onSelectRequisition(selectedReq);
+                          setSelectedReq(null);
+                        }}
+                        className="px-3.5 py-2 font-semibold bg-white border border-borderline text-primary hover:bg-indigo-50/50 rounded-lg flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                      >
+                        <Users className="w-3.5 h-3.5 text-primary" />
+                        <span>View Candidates in FMS</span>
+                      </button>
+                    )}
+                    {onAddCandidateForReq && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onAddCandidateForReq(selectedReq);
+                          setSelectedReq(null);
+                        }}
+                        className="px-4 py-2 font-semibold bg-primary text-white rounded-lg hover:bg-primary/95 flex items-center gap-1.5 shadow-xs cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Add Candidate to Opening</span>
+                      </button>
+                    )}
+                  </>
+                )}
               </div>
             </div>
           </div>

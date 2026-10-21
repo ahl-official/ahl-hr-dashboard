@@ -17,7 +17,7 @@ test("FMS Candidate Stages configuration and ordering", () => {
     ["ar", "ps", "cc", "jo", "doc", "ob"]
   );
   assert.equal(FMS_CANDIDATE_STAGES[0].name, "Application Received");
-  assert.equal(FMS_CANDIDATE_STAGES[1].name, "Pre-Screening");
+  assert.equal(FMS_CANDIDATE_STAGES[1].name, "Interview Updates");
   assert.equal(FMS_CANDIDATE_STAGES[2].name, "Confirmation Call");
   assert.equal(FMS_CANDIDATE_STAGES[3].name, "Joining");
   assert.equal(FMS_CANDIDATE_STAGES[4].name, "Documentation");

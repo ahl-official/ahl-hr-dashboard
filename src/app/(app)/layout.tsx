@@ -63,7 +63,7 @@ function Frame({ children }: { children: React.ReactNode }) {
         onOpenMobileMenu={() => d.setMobileMenuOpen(true)}
       />
 
-      <main className="p-4 sm:p-8 max-w-7xl mx-auto w-full flex-1">
+      <main className={`p-4 sm:p-6 ${activeSection === "recruitment" ? "max-w-[1920px] px-3 sm:px-6" : "max-w-7xl"} mx-auto w-full flex-1 min-w-0`}>
         {!["records", "add-employee", "recruitment", "ai-tests"].includes(activeSection) && (
           <div className="sticky top-16 z-20 bg-canvas -mx-4 sm:-mx-8 px-4 sm:px-8 pt-1 pb-3 mb-3">
             <GlobalFilters

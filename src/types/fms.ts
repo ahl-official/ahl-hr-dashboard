@@ -25,34 +25,45 @@ export const FMS_CANDIDATE_STAGES: FmsStageMeta[] = [
     bg: "#EFF6FF",
     textColor: "#1D4ED8",
     weeks: 0.14,
-    checklist: [
-      "Received application form",
-      "Verified contact details",
-      "Acknowledged receipt via email/call",
-      "Linked to requisition if applicable",
-    ],
+    checklist: [],
     fields: [
+      {
+        key: "applicationStatus",
+        label: "Application Status",
+        type: "select",
+        opts: ["Under Review", "Interview Scheduled", "No Response", "Dropped"],
+      },
       { key: "sourceChannel", label: "How did they apply?", type: "text", ph: "LinkedIn, walk-in, referral…" },
       { key: "initialNotes", label: "Initial notes", type: "textarea", ph: "First impressions, relevant observations…" },
     ],
   },
   {
     id: "ps",
-    name: "Pre-Screening",
+    name: "Interview Updates",
     color: "#D97706",
     bg: "#FFFBEB",
     textColor: "#92400E",
     weeks: 0.43,
-    checklist: [
-      "Resume reviewed against JD",
-      "Skills match confirmed",
-      "Experience verified",
-      "Phone/video screen scheduled",
-      "Candidate responded to outreach",
-    ],
+    checklist: [],
     fields: [
-      { key: "screeningResult", label: "Screening outcome", type: "select", opts: ["Pass", "Hold", "Fail"] },
-      { key: "screeningNotes", label: "Screening notes", type: "textarea", ph: "Key findings, red flags, strengths…" },
+      {
+        key: "interviewUpdateStatus",
+        label: "Interview Status",
+        type: "select",
+        opts: ["Hired", "Not Hired", "Didn't Come for Interview", "Rescheduled"],
+      },
+      {
+        key: "rescheduledDate",
+        label: "Rescheduled Date",
+        type: "date",
+      },
+      {
+        key: "rescheduledStatus",
+        label: "Rescheduled Status",
+        type: "select",
+        opts: ["Pending", "Hired", "Not Hired", "Didn't Come for Interview"],
+      },
+      { key: "screeningNotes", label: "Interview Notes / Remarks", type: "textarea", ph: "Candidate response, feedback, trial observations…" },
     ],
   },
   {
@@ -62,13 +73,7 @@ export const FMS_CANDIDATE_STAGES: FmsStageMeta[] = [
     bg: "#F5F3FF",
     textColor: "#5B21B6",
     weeks: 0.29,
-    checklist: [
-      "Confirmation call completed",
-      "Availability confirmed",
-      "Salary expectations discussed",
-      "Notice period confirmed",
-      "Interview scheduled",
-    ],
+    checklist: [],
     fields: [
       { key: "callDate", label: "Call date", type: "date" },
       { key: "noticePeriod", label: "Notice period", type: "text", ph: "e.g. 30 days, immediate" },
@@ -83,14 +88,7 @@ export const FMS_CANDIDATE_STAGES: FmsStageMeta[] = [
     bg: "#F0FDFA",
     textColor: "#115E59",
     weeks: 1,
-    checklist: [
-      "Offer letter sent",
-      "Offer accepted",
-      "Background check initiated",
-      "Joining date confirmed",
-      "Pre-joining documents collected",
-      "IT/access setup requested",
-    ],
+    checklist: [],
     fields: [
       { key: "offerDate", label: "Offer letter date", type: "date" },
       { key: "joiningDate", label: "Confirmed joining date", type: "date" },
@@ -107,12 +105,7 @@ export const FMS_CANDIDATE_STAGES: FmsStageMeta[] = [
     bg: "#EEF2FF",
     textColor: "#4338CA",
     weeks: 0.5,
-    checklist: [
-      "KYC documents received",
-      "Personal details verified",
-      "Bank account details collected",
-      "Family details updated",
-    ],
+    checklist: [],
     fields: [
       { key: "dateOfBirth", label: "Date of Birth", type: "date" },
       { key: "gender", label: "Gender", type: "select", opts: ["Male", "Female", "Other"] },
@@ -132,16 +125,7 @@ export const FMS_CANDIDATE_STAGES: FmsStageMeta[] = [
     bg: "#F0FDF4",
     textColor: "#14532D",
     weeks: 2,
-    checklist: [
-      "Welcome email sent",
-      "ID and access card issued",
-      "System accounts created",
-      "Buddy/mentor assigned",
-      "First day orientation done",
-      "Training plan shared",
-      "Employee handbook signed",
-      "First week check-in done",
-    ],
+    checklist: [],
     fields: [
       { key: "empId", label: "Employee ID assigned", type: "text", ph: "e.g. EMP-0045" },
       { key: "mentorName", label: "Mentor/Buddy assigned", type: "text", ph: "Name of mentor" },
@@ -184,6 +168,25 @@ export interface FmsPersonalAndBankDetails {
   housingStatus?: string;
 }
 
+export interface FmsInterviewRecord {
+  id: string; // e.g. INT-001
+  candidateId: string;
+  roundName: string; // e.g. "Screening Call", "Salon Practical Trial", "Technical Interview", "Final HR Round"
+  scheduledDate: string; // YYYY-MM-DD
+  scheduledTime: string; // e.g. "11:00 AM"
+  durationMinutes?: number;
+  mode: "In-Person" | "Video Call" | "Phone Call";
+  locationOrLink?: string; // e.g. "Bandra Salon" or "Google Meet"
+  interviewerName: string;
+  status: "Scheduled" | "Passed" | "Failed" | "On Hold" | "Rescheduled" | "Cancelled";
+  rating?: number; // 1 to 5
+  feedback?: string;
+  hireOsScore?: number; // e.g. 88
+  discProfile?: string; // e.g. "High D / Driver"
+  createdAt?: string;
+  completedAt?: string;
+}
+
 export interface FmsCandidate {
   id: string; // e.g. CAND-0010
   fmsId: string; // e.g. FMS-9119741f
@@ -212,6 +215,10 @@ export interface FmsCandidate {
   interviewStatus?: string; // "Active" | "Scheduled" | "Completed" | "Dropped"
   archived?: boolean;
   archiveReason?: string;
+  applicationStatus?: "Under Review" | "Interview Scheduled" | "No Response" | "Dropped" | string;
+  interviewUpdateStatus?: "Hired" | "Not Hired" | "Didn't Come for Interview" | "Rescheduled" | string;
+  rescheduledDate?: string;
+  rescheduledStatus?: "Pending" | "Hired" | "Not Hired" | "Didn't Come for Interview" | string;
   stageData: Record<string, any>;
   stages: Record<string, FmsCandidateStageTracking>;
   personalDetails: FmsPersonalAndBankDetails;
@@ -220,6 +227,9 @@ export interface FmsCandidate {
   assignedTo?: string;
   followUpDate?: string;
   notes?: string;
+  interviews?: FmsInterviewRecord[];
+  hireOsScore?: number;
+  discProfile?: string;
   createdAt: string;
   updatedAt: string;
 }

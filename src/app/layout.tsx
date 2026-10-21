@@ -35,8 +35,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${mono.variable}`}>
-      <body className="antialiased">
+    <html lang="en" suppressHydrationWarning className={`${inter.variable} ${mono.variable}`}>
+      <body suppressHydrationWarning className="antialiased">
         <ToastProvider>
           <PWAInstallBanner />
           {children}

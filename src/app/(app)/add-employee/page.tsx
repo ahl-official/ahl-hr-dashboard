@@ -70,13 +70,26 @@ function AddEmployeeForm() {
     const nameParam = searchParams.get("name");
     const mobileParam = searchParams.get("mobile");
     const designationParam = searchParams.get("designation");
-    if (nameParam || mobileParam || designationParam) {
+    const companyParam = searchParams.get("company");
+    const departmentParam = searchParams.get("department");
+    const managerParam = searchParams.get("manager");
+    const dojParam = searchParams.get("doj");
+    const modeParam = (searchParams.get("mode") as Mode) || null;
+
+    if (nameParam || mobileParam || designationParam || companyParam || departmentParam) {
+      setMode(modeParam || "link");
       setForm((f) => ({
         ...f,
         name: nameParam || f.name,
         mobile: mobileParam || f.mobile,
         designation: designationParam || f.designation,
+        company: companyParam || f.company,
+        department: departmentParam || f.department,
+        manager: managerParam || f.manager,
+        doj: dojParam || f.doj,
       }));
+    } else if (modeParam) {
+      setMode(modeParam);
     }
   }, [searchParams]);
 
