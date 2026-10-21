@@ -1,82 +1,131 @@
-# AHL HR Command Center — FMS Implementation Session Checkpoint
+# AHL HR Command Center — Session Resume Checkpoint
 
-> **Date & Time**: Wednesday, October 21, 2026  
+> **Date Saved**: Wednesday, October 21, 2026  
 > **Workspace**: `c:\Users\HP\Desktop\HR Dashboard\ahl-hr-dashboard`  
-> **Current Status**: Feature 1, Feature 2, Feature 3, and Feature 4 are **100% COMPLETE & TESTED**.  
-> **Quality Gate**: 91/91 tests passing (`npm test`), 0 TypeScript errors (`npx tsc --noEmit`), dev server running on `http://localhost:3000`.  
-> **Next Immediate Task**: **Feature 5: Holiday Calendar Sync (`/calendar`)**.
+> **Git Remote**: `https://github.com/ahl-official/ahl-hr-dashboard.git` (branch: `main`, commit: `aa80c41`)  
+> **Working Tree**: Completely Clean & Pushed to GitHub  
+> **Quality Gate**: 93/93 unit tests passing (`npm test`), 0 TypeScript errors (`npx tsc --noEmit`)  
+> **Dev Server**: Running on `http://localhost:3000`
 
 ---
 
-## 1. What Has Been Completed So Far
+## 1. Executive Summary: What Was Accomplished Today
 
-### Feature 1: Job Requisitions Pipeline (`/recruitment` Tab 1) — ✅ COMPLETED
-- Requisition cards with status badges (`Open`, `Filled`, `Cancelled`), priority, budget, openings count.
-- Filters by department, brand (`AHL` vs `ALC`), priority, and search.
-- "+ New Requisition" intake modal.
-- Connected to Candidate Intake: clicking "+ Candidate" on a requisition passes its `reqId` to pre-fill the candidate's requisition field.
+All requested features, fixes, and UI refinements were completed, thoroughly tested, and pushed to GitHub:
 
-### Feature 2: Candidate Applications & Inbound Intake Form (`/recruitment` Tab 2) — ✅ COMPLETED
-- `src/lib/fms-candidates-store.ts`: In-memory store parsing 40 FMS candidates + 7 inbound applications.
-- Auto-increment candidate IDs starting from `CAND-0042+`.
-- Phone normalizer `normalizeFmsPhone()` for instant international WhatsApp formatting (`+91...`).
-- `src/app/api/recruitment/candidates-fms/route.ts`: Full GET, POST, PATCH handlers.
-- `src/components/recruitment/CandidateApplicationsTab.tsx`: KPI cards (Total, In Pipeline, Hired, Dropped), filters, Add Candidate modal with instant WhatsApp invite trigger, and 360° candidate drawer.
-- Unit tests: `tests/candidates-fms.test.ts` (all passing).
+### A. Stage Revert Functionality (`Revert to Previous Stage ↶`)
+- **Kanban Cards**: Quick `Revert` button with `<RotateCcw />` icon on every card in Stages 2 through 6.
+- **Table View**: Dedicated `Revert` action button in the actions column for all candidates beyond Stage 1.
+- **Stage Action Drawer**: Prominent `Revert to [Previous Stage Name] ↶` button on the left of the drawer footer.
+- **State & Data Protection**:
+  - Confirmation modal prevents accidental reverts.
+  - Clears `actualDate` of current stage and resets status to `Pending`.
+  - Resets previous stage status back to `In Progress` and sets `currentStage` to previous stage.
+  - Reverting from Stage 6 (`Onboarding`) automatically rolls back candidate status from `Hired`/`Onboarded` to `In Progress`.
+  - Appends an audit trail entry into candidate `notes`: `[YYYY-MM-DD] Reverted to [Stage Name]: Reverted by user`.
+  - Optimistically updates candidates list and refreshes the open drawer.
 
-### Feature 3: Candidate FMS 6-Stage Pipeline (`/recruitment` Tab 3) — ✅ COMPLETED
-- 6-Stage Pipeline Board:
-  1. `ar` - Application Received (Blue)
-  2. `ps` - Pre-Screening (Amber)
-  3. `cc` - Confirmation Call (Violet)
-  4. `jo` - Joining / Offer (Teal)
-  5. `doc` - Documentation & KYC (Indigo)
-  6. `ob` - Onboarding (Green)
-- Prominent **SLA Delay Badges**: `+N Days Delay` calculated via `Actual Date - Planned Date` (or today's date if overdue).
-- Stage Gate Checklist Drawer: Interactive checklist items that update completion percentage and stage status (`Pending`, `In Progress`, `Completed`, `Overdue`).
-- Dedicated stage fields per stage (e.g. uniform size, KYC bank details, mentor name).
-- **1-Click Onboard Promotion Bridge**: When candidate reaches Stage 6 (`ob`), clicking "Promote & Onboard" opens `/add-employee` with pre-filled name, phone, email, Aadhaar, PAN, bank details, and auto-generates contract PDF.
-- Unit tests: `tests/candidate-pipeline.test.ts` (all passing).
+### B. 3×2 Desktop Kanban View (Fixed Height & Scrollable Lists)
+- All 6 stages are rendered in a clean **3 stages per row × 2 rows** grid (`grid-cols-1 md:grid-cols-3 gap-3.5`).
+- Each stage bracket has a fixed vertical height (`360px`, `overflow-hidden`), so all 6 stages fit on a desktop monitor simultaneously without vertical scrolling.
+- Inner candidate card lists are independently scrollable (`flex: "1 1 0%", overflowY: "auto"`).
+- Top KPI metric bar was streamlined to a slim, compact banner to preserve vertical viewport space.
 
-### Feature 4: Today's Interviews & Daily Agenda Widget (`/recruitment` Tab 4) — ✅ COMPLETED
-- Extended data types: `FmsInterviewRecord`, `EnrichedInterview`, `ScheduleInterviewInput`, `LogInterviewOutcomeInput`.
-- Store methods: `getInterviewsStore()`, `getInterviewsStats()`, `scheduleInterviewStore()`, `logInterviewOutcomeStore()`.
-- API endpoints: `GET /api/recruitment/candidates-fms?interviewsDate=...`, `POST action: "schedule-interview"`, `POST action: "log-interview-outcome"`.
-- Modern UI Component: `src/components/recruitment/TodayInterviewsTab.tsx`:
-  - Date Agenda Switcher: Quick chips for "Today's Roster", "Tomorrow", "All Upcoming & Past", and custom date picker.
-  - 4-Card KPI Widget: Today's Agenda, Scheduled / Ready, Passed & Advanced, On Hold / Dropped.
-  - Interactive Search & Filter Bar: Filter by Candidate Name, Round, Interviewer, Mode, and Status.
-  - Candidate Interview Cards: Showing time slot, mode, location/meet link, candidate profile, initials gradient, brand chip (`AHL` vs `ALC`), round name, and interviewer.
-  - 💬 **WhatsApp Reminder Button**: Generates pre-filled personalized template message to `https://wa.me/91...`.
-  - 📞 **Direct Call Button**: `tel:...` quick trigger.
-  - 🧠 **HireOS AI & DISC Psychometrics Widget**: Displays AI competency match score and behavioral DISC quadrant analysis (Dominance, Influence, Steadiness, Conscientiousness).
-  - ⭐ **Log Evaluation Modal**: Rate 1-5 stars, enter interviewer feedback notes, select outcome (Passed, Failed, On Hold, Rescheduled), and optional 1-click auto-advance to next pipeline stage.
-  - 📅 **Schedule Interview Modal**: Book slots for any active candidate with round name, date, time, mode, interviewer, and salon station.
-- Unit tests: `tests/today-interviews.test.ts` (all passing).
+### C. Stage 1 Application Review Status Dropdown
+- Replaced the previous checklist with an immediate **Application Status** selector:
+  - Options: `Under Review`, `Interview Scheduled`, `No Response`, `Dropped`.
+  - Color-coded badges for quick visual scanning.
 
----
+### D. Stage 2 Interview Updates & Reschedule Tracker
+- Dedicated **Interview Updates** section in Pre-Screening:
+  - Options: `Hired`, `Not Hired`, `Didn't Come for Interview`, `Rescheduled`.
+  - Selecting `Rescheduled` displays a sub-form capturing **Rescheduled Date** (`<input type="date">`) and follow-up status (`Pending`, `Hired`, `Not Hired`, `Didn't Come for Interview`).
 
-## 2. Next Session Focus: Feature 5 (Holiday Calendar Sync on `/calendar`)
+### E. Stage 6 Direct "ADD to Employees" Handoff
+- Replaced legacy button with **"ADD to Employees ➔"**.
+- Instantly navigates to `/add-employee` with all candidate fields pre-populated (Full Name, Phone, Email, Position, Brand, Requisition ID, Salary, PAN, Aadhaar, Bank details).
 
-### Business Logic & Requirements
-1. In legacy Google Apps Script and FMS (`Index.html: L6800-6920`), public/festive holidays (Diwali, Holi, Independence Day, Christmas, Republic Day, Eid, etc.) were tracked for AHL and ALC salon operations.
-2. The current `/calendar` page already renders First-Wednesday team meetings and employee birthdays/reviews.
-3. Feature 5 will sync all national & festive holidays directly into the monthly grid:
-   - Festive Holiday Badges (amber/purple badges).
-   - Filter by brand: `American Hairline`, `Alchemane`, or `Both`.
-   - Preloaded 2026 official holiday schedule for Mumbai & salon locations.
+### F. Edit Candidate in Every Stage & Inbound Tab
+- Added a full **Edit Candidate Details** modal accessible from:
+  1. Candidate Applications list.
+  2. Each Kanban card across all 6 stages.
+  3. The Table View row action bar.
+- Edits persist via `PATCH /api/recruitment/candidates-fms`.
+
+### G. Job Requisition View/Manage Modal Fix
+- Requisition detail/edit modal was fixed with proper scrolling (`max-h-[90vh]`, `overflow-y-auto`) and clear action buttons.
 
 ---
 
-## 3. Quick Verification Commands
+## 2. Git Status & Code Integrity
+
+- **Branch**: `main`
+- **Latest Commit**: `aa80c41` — `feat(fms): 6-stage candidate pipeline with stage revert, edit, interview updates & onboarding`
+- **Remote**: Synced and pushed to `origin/main`.
+- **Tests**:
+  ```bash
+  npm test
+  # Result: 93/93 tests passing
+  ```
+- **Type Checking**:
+  ```bash
+  npx tsc --noEmit
+  # Result: 0 errors (Exit code 0)
+  ```
+
+---
+
+## 3. Next Steps Plan for Tomorrow (Referencing `HR_SYSTEM_FMS_ANALYSIS.md`)
+
+When resuming tomorrow, the user will specify which module to implement next. Below is the ready-to-execute breakdown from [`HR_SYSTEM_FMS_ANALYSIS.md`](file:///c:/Users/HP/Desktop/HR%20Dashboard/ahl-hr-dashboard/apps-script/hr-system-fms/HR_SYSTEM_FMS_ANALYSIS.md):
+
+### Option 1 (Recommended): Phase 1 — HR Problem Tracker FMS (`/problems`)
+- **Reference**: Module 4 (`ProblemTracker` sheet tab).
+- **Core 4-Stage Workflow**:
+  1. `p1` — **Report Logged** (Intake, priority: `High`/`Medium`/`Low`, category, department, owner).
+  2. `p2` — **Issue Analysis** (Root cause diagnosis, severity assessment, proposed corrective action).
+  3. `p3` — **Resolution** (Implementation of corrective action, resolution timestamp).
+  4. `p4` — **Closure** (Sign-off verification, SLA turnaround tracking, closure notes).
+- **Deliverables**: New `/problems` route in Next.js with Kanban board, problem drawer, and SLA delay counters.
+
+### Option 2: Phase 2 — Training Management FMS (`/training`)
+- **Reference**: Module 5 (`Trainings` sheet tab).
+- **5-Stage Pipeline**: Planning ➔ Scheduling ➔ In Progress ➔ Evaluation ➔ Completed.
+- **Deliverables**: Training schedule tracker, salon skill workshop management, attendance, certificates.
+
+### Option 3: Phase 3 — Leaves & Company Holiday Calendar (`/leaves` & `/calendar`)
+- **Reference**: Module 6 (`Leaves` & `Holidays` sheet tabs).
+- **Deliverables**:
+  - National & festive holiday calendar integration into [`/calendar`](file:///c:/Users/HP/Desktop/HR%20Dashboard/ahl-hr-dashboard/src/app/(app)/calendar/page.tsx).
+  - Leave requests portal with leave balances and manager approval workflow (`Pending`, `Approved`, `Rejected`).
+
+### Option 4: Phase 4 — Exit Workflow & Lifecycle Milestones (`/exit` & `/records`)
+- **Reference**: Modules 7 & 8 (`LifecycleEvents`, `Feedback`, exit workflows).
+- **Deliverables**: Resignation tracking, notice period countdown, asset handover clearance, and career milestones.
+
+### Option 5: Phase 5 — Role-Based Auth & Brand Switcher
+- **Reference**: Module 10 (`Users` sheet tab).
+- **Deliverables**: Roles (`Admin`, `HR`, `Manager`, `Employee`) and global brand switcher in the header (`AHL` vs `ALC`).
+
+---
+
+## 4. Quick Start Commands for Tomorrow
+
+To resume immediately in the next session:
 
 ```bash
-# 1. Run all unit tests (91 passing)
+cd "c:\Users\HP\Desktop\HR Dashboard\ahl-hr-dashboard"
+
+# 1. Verify working branch status
+git status
+
+# 2. Run unit tests
 npm test
 
-# 2. Check TypeScript type integrity (0 errors)
+# 3. Check type checking
 npx tsc --noEmit
 
-# 3. Development server
+# 4. Start local development server (if not already running)
 npm run dev
+# Open in browser: http://localhost:3000/recruitment
 ```
