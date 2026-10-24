@@ -55,6 +55,37 @@ export const isPan = (v: string) => /^[A-Z]{5}\d{4}[A-Z]$/.test(v.trim().toUpper
 export const isIfsc = (v: string) => /^[A-Z]{4}0[A-Z0-9]{6}$/.test(v.trim().toUpperCase());
 export const isAccountNo = (v: string) => /^\d{9,18}$/.test(v.replace(/\s/g, ""));
 
+/**
+ * Returns a specific, actionable error message if IFSC is invalid, or null if valid.
+ */
+export function getIfscValidationError(raw: string): string | null {
+  const v = (raw || "").trim().toUpperCase();
+  if (!v) return null;
+
+  // Most common mistake in India: ICICI bank code is ICIC, not ICICI
+  if (v.startsWith("ICICI")) {
+    return "For ICICI Bank, the code starts with ICIC, not ICICI (e.g. ICIC0000209). Remove the extra 'I'.";
+  }
+
+  if (v.length !== 11) {
+    return `IFSC must be exactly 11 characters (you entered ${v.length}). Example: HDFC0001234.`;
+  }
+
+  if (!/^[A-Z]{4}/.test(v)) {
+    return "The first 4 characters of IFSC must be bank letters (e.g. HDFC, ICIC, SBIN).";
+  }
+
+  if (v.charAt(4) !== "0") {
+    return `The 5th character of IFSC must always be '0' (zero), not '${v.charAt(4)}'. Example: HDFC0001234.`;
+  }
+
+  if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(v)) {
+    return "The last 6 characters of IFSC must be letters or numbers representing the branch.";
+  }
+
+  return null;
+}
+
 export type OnboardingData = Record<string, string>;
 
 /** Returns the first problem on the given step, or null when the step is valid. */
@@ -86,7 +117,10 @@ export function validateOnboardingStep(step: number, f: OnboardingData): string 
     if (t("pan") && !isPan(t("pan"))) return "PAN must look like ABCDE1234F.";
   }
   if (step === 3) {
-    if (t("ifsc") && !isIfsc(t("ifsc"))) return "IFSC must look like HDFC0001234.";
+    if (t("ifsc")) {
+      const ifscProblem = getIfscValidationError(t("ifsc"));
+      if (ifscProblem) return ifscProblem;
+    }
     if (t("accountNumber") && !isAccountNo(t("accountNumber"))) return "Account number must be 9-18 digits.";
     if (t("lastSalary") && !(Number(t("lastSalary").replace(/[,\s₹]/g, "")) >= 0)) return "Last drawn salary must be a number (leave it blank if this is your first job).";
     if (t("incrementYear") && !/^(19|20)\d{2}$/.test(t("incrementYear"))) return "Last increment year must be a 4-digit year.";

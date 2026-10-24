@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { CANONICAL_DEPARTMENTS, COMPANIES, GENDERS, DIETARY_PREFERENCES, VEHICLE_OWNERSHIPS, HOUSING_STATUSES } from "@/lib/constants";
 import { getTodayLocalIsoDate } from "@/lib/date-utils";
-import { validateOnboardingStep } from "@/lib/validate";
+import { validateOnboardingStep, getIfscValidationError } from "@/lib/validate";
 import { EmployeeSummary } from "@/types";
 
 const SENSITIVE_FIELDS = ["aadhar", "pan", "accountNumber", "ifsc", "lastSalary", "signature", "declaration"];
@@ -448,27 +448,55 @@ export function AddEmployeeWizard({ prefill, submitUrl, onSubmitted }: AddEmploy
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  Aadhaar Card Number
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    Aadhaar Card Number
+                  </label>
+                  {formData.aadhar && (
+                    <span
+                      className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full ${
+                        formData.aadhar.replace(/\s/g, "").length === 12
+                          ? "bg-emerald-100 text-emerald-700 font-semibold"
+                          : "bg-slate-100 text-slate-500"
+                      }`}
+                    >
+                      {formData.aadhar.replace(/\s/g, "").length}/12 digits
+                    </span>
+                  )}
+                </div>
                 <input
                   type="text"
                   value={formData.aadhar}
-                  onChange={(e) => updateField("aadhar", e.target.value)}
+                  onChange={(e) => updateField("aadhar", e.target.value.replace(/\s/g, ""))}
                   placeholder="12 digit Aadhaar"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-indigo-500"
+                  maxLength={12}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-mono focus:bg-white focus:border-indigo-500"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  PAN Number (Auto Uppercase)
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    PAN Number
+                  </label>
+                  {formData.pan && (
+                    <span
+                      className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full ${
+                        formData.pan.replace(/\s/g, "").length === 10
+                          ? "bg-emerald-100 text-emerald-700 font-semibold"
+                          : "bg-slate-100 text-slate-500"
+                      }`}
+                    >
+                      {formData.pan.replace(/\s/g, "").length}/10 chars
+                    </span>
+                  )}
+                </div>
                 <input
                   type="text"
                   value={formData.pan}
-                  onChange={(e) => updateField("pan", e.target.value.toUpperCase())}
+                  onChange={(e) => updateField("pan", e.target.value.toUpperCase().replace(/\s/g, ""))}
                   placeholder="ABCDE1234F"
+                  maxLength={10}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm uppercase font-mono focus:bg-white focus:border-indigo-500"
                 />
               </div>
@@ -604,29 +632,100 @@ export function AddEmployeeWizard({ prefill, submitUrl, onSubmitted }: AddEmploy
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  Account Number
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    Account Number
+                  </label>
+                  {formData.accountNumber && (
+                    <span className="text-[10px] font-mono text-slate-400">
+                      {formData.accountNumber.replace(/\s/g, "").length} digits
+                    </span>
+                  )}
+                </div>
                 <input
                   type="text"
                   value={formData.accountNumber}
-                  onChange={(e) => updateField("accountNumber", e.target.value)}
-                  placeholder="Account number"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-indigo-500"
+                  onChange={(e) => updateField("accountNumber", e.target.value.replace(/\s/g, ""))}
+                  placeholder="e.g. 020901550844"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-mono focus:bg-white focus:border-indigo-500"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  IFSC Code
-                </label>
-                <input
-                  type="text"
-                  value={formData.ifsc}
-                  onChange={(e) => updateField("ifsc", e.target.value.toUpperCase())}
-                  placeholder="HDFC0000249"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm uppercase font-mono focus:bg-white focus:border-indigo-500"
-                />
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    IFSC Code
+                  </label>
+                  {formData.ifsc && (
+                    <span
+                      className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full ${
+                        formData.ifsc.length === 11 && !getIfscValidationError(formData.ifsc)
+                          ? "bg-emerald-100 text-emerald-700 font-semibold"
+                          : formData.ifsc.length > 11
+                          ? "bg-rose-100 text-rose-700 font-bold"
+                          : "bg-slate-100 text-slate-500"
+                      }`}
+                    >
+                      {formData.ifsc.length}/11 chars
+                    </span>
+                  )}
+                </div>
+
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={formData.ifsc}
+                    onChange={(e) => {
+                      const clean = e.target.value.toUpperCase().replace(/\s/g, "");
+                      updateField("ifsc", clean);
+                    }}
+                    placeholder="e.g. ICIC0000209 or HDFC0001234"
+                    maxLength={15}
+                    className={`w-full px-3 py-2 border rounded-xl text-xs sm:text-sm uppercase font-mono transition-all ${
+                      formData.ifsc && getIfscValidationError(formData.ifsc)
+                        ? "bg-rose-50/40 border-rose-300 text-rose-950 focus:border-rose-500 focus:ring-1 focus:ring-rose-200"
+                        : formData.ifsc && formData.ifsc.length === 11
+                        ? "bg-emerald-50/30 border-emerald-300 text-emerald-950 focus:border-emerald-500"
+                        : "bg-slate-50 border-slate-200 focus:bg-white focus:border-indigo-500"
+                    }`}
+                  />
+                  {formData.ifsc && formData.ifsc.length === 11 && !getIfscValidationError(formData.ifsc) && (
+                    <div className="absolute right-3 top-2.5 text-emerald-600 pointer-events-none">
+                      <CheckCircle2 className="w-4 h-4" />
+                    </div>
+                  )}
+                </div>
+
+                {/* Smart Diagnostic Hint & 1-Click Auto-Fix */}
+                {formData.ifsc && getIfscValidationError(formData.ifsc) && (
+                  <div className="mt-1.5 p-2 rounded-lg bg-rose-50 border border-rose-200 text-[11px] text-rose-800 space-y-1">
+                    <div className="flex items-start gap-1.5">
+                      <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0 mt-0.5" />
+                      <span className="font-medium leading-tight">
+                        {getIfscValidationError(formData.ifsc)}
+                      </span>
+                    </div>
+
+                    {formData.ifsc.startsWith("ICICI") && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const fixed = formData.ifsc.replace(/^ICICI/, "ICIC");
+                          updateField("ifsc", fixed);
+                        }}
+                        className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded bg-rose-200/80 hover:bg-rose-300 text-rose-950 text-[10px] font-bold transition cursor-pointer"
+                      >
+                        <span>Fix to: {formData.ifsc.replace(/^ICICI/, "ICIC")}</span>
+                        <ArrowRight className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                )}
+                {!formData.ifsc && (
+                  <p className="mt-1 text-[11px] text-slate-400">
+                    Must be exactly 11 characters. 5th character is always 0 (zero).
+                  </p>
+                )}
               </div>
 
               <div>

@@ -14,7 +14,7 @@ import {
   humanCountdown,
 } from "../src/lib/date-utils.ts";
 import { cleanPhoneNumber } from "../src/lib/whatsapp.ts";
-import { isIsoDate, assertOneOf, ValidationError, isEmail, isPhone, isPan, isIfsc, isAadhaar, isAccountNo, validateOnboardingStep } from "../src/lib/validate.ts";
+import { isIsoDate, assertOneOf, ValidationError, isEmail, isPhone, isPan, isIfsc, isAadhaar, isAccountNo, validateOnboardingStep, getIfscValidationError } from "../src/lib/validate.ts";
 
 const at = (iso: string) => mock.timers.enable({ apis: ["Date"], now: new Date(`${iso}T12:00:00`) });
 const emp = (over: Record<string, string>) =>
@@ -184,6 +184,16 @@ test("onboarding wizard validation per step", () => {
   assert.match(validateOnboardingStep(2, { ...ok, mobile: "12345" })!, /Mobile/);
   assert.match(validateOnboardingStep(2, { ...ok, personalEmail: "nope" })!, /email/);
   assert.match(validateOnboardingStep(3, { ...ok, ifsc: "BAD" })!, /IFSC/);
+  assert.match(validateOnboardingStep(3, { ...ok, ifsc: "ICICI0000209" })!, /ICICI/);
   assert.match(validateOnboardingStep(5, { ...ok, politicalBackground: "Yes" })!, /political/i);
   assert.match(validateOnboardingStep(5, { ...ok, declaration: "" })!, /tick the box/);
+});
+
+test("getIfscValidationError diagnostics", () => {
+  assert.equal(getIfscValidationError("ICIC0000209"), null);
+  assert.equal(getIfscValidationError("HDFC0001234"), null);
+  assert.match(getIfscValidationError("ICICI0000209")!, /ICICI/);
+  assert.match(getIfscValidationError("HDFC1001234")!, /5th character/);
+  assert.match(getIfscValidationError("HDFC")!, /11 characters/);
+  assert.match(getIfscValidationError("12340001234")!, /bank letters/);
 });
