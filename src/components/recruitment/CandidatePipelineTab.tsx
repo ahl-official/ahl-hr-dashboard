@@ -123,7 +123,7 @@ export default function CandidatePipelineTab({
 
     try {
       const [candRes, reqRes] = await Promise.all([
-        fetch("/api/recruitment/candidates-fms"),
+        fetch(isRefresh ? "/api/recruitment/candidates-fms?refresh=true" : "/api/recruitment/candidates-fms"),
         fetch("/api/recruitment/requisitions"),
       ]);
 

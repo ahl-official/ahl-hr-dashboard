@@ -147,7 +147,7 @@ export default function CandidateApplicationsTab({
     setError(null);
 
     try {
-      const res = await fetch("/api/recruitment/candidates-fms");
+      const res = await fetch(isRefresh ? "/api/recruitment/candidates-fms?refresh=true" : "/api/recruitment/candidates-fms");
       const json = await res.json();
       if (json.success && json.data) {
         setCandidates(json.data.candidates || []);

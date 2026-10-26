@@ -63,12 +63,12 @@ export async function getFmsValues(range: string): Promise<unknown[][]> {
   const url = `${SHEETS_BASE}/${ssId}/values/${encodeURIComponent(range)}?majorDimension=ROWS&valueRenderOption=UNFORMATTED_VALUE`;
   try {
     const result = await googleRequest<{ values?: unknown[][] }>(url);
-    if (result.values && result.values.length > 0) return result.values;
+    return result.values || [];
   } catch (err) {
     console.warn(`[fms-sheets] Live Google Sheets fetch failed for ${range}, using extracted fallback:`, err);
   }
 
-  // Fallback to locally extracted seed data
+  // Fallback to locally extracted seed data only on API failure
   const tabName = range.split("!")[0].replace(/'/g, "");
   const fallbackRows = (extractedData as Record<string, unknown[][]>)[tabName];
   return fallbackRows || [];
@@ -80,7 +80,7 @@ export async function batchGetFmsValues(ranges: string[]): Promise<unknown[][][]
   const url = `${SHEETS_BASE}/${ssId}/values:batchGet?${query}&majorDimension=ROWS&valueRenderOption=UNFORMATTED_VALUE`;
   try {
     const result = await googleRequest<{ valueRanges?: Array<{ values?: unknown[][] }> }>(url);
-    if (result.valueRanges && result.valueRanges.length > 0) {
+    if (result.valueRanges) {
       return result.valueRanges.map((item) => item.values || []);
     }
   } catch (err) {
@@ -274,32 +274,159 @@ export async function getFmsCandidateById(id: string): Promise<FmsCandidate | nu
   return all.find((c) => c.id === id || c.fmsId === id) || null;
 }
 
+export function candidateToFmsRow(cand: Partial<FmsCandidate>): unknown[] {
+  const now = new Date().toISOString();
+  const row = new Array(89).fill("");
+
+  row[0] = cand.id || "";
+  row[1] = cand.fmsId || `FMS-${cand.id || ""}`;
+  row[2] = cand.fullName || "";
+  row[3] = cand.phone || "";
+  row[4] = cand.whatsapp || cand.phone || "";
+  row[5] = cand.email || cand.personalDetails?.personalEmail || "";
+  row[6] = cand.position || "";
+  row[7] = cand.requisitionId || "";
+  row[8] = cand.brand || "ahl";
+  row[9] = cand.experience || "";
+  row[10] = cand.source || "";
+  row[11] = cand.city || "";
+  row[12] = cand.area || "";
+  row[13] = cand.currentCompany || "";
+  row[14] = cand.currentDesignation || "";
+  row[15] = cand.currentSalary || "";
+  row[16] = cand.expectedSalary || "";
+  row[17] = cand.noticePeriod || "";
+  row[18] = cand.skills || "";
+  row[19] = cand.resumeLink || "";
+  row[20] = cand.status || "Active";
+  row[21] = cand.currentStage || "Application Received";
+  row[22] = cand.notes || "";
+
+  // Stage 1: Application Received
+  row[23] = cand.stages?.ar?.plannedDate || "";
+  row[24] = cand.stages?.ar?.actualDate || "";
+  row[25] = cand.stages?.ar?.status || "Pending";
+  row[26] = cand.stages?.ar?.delayDays || 0;
+  row[27] = cand.stageData?.ar?.notes || "";
+  row[28] = JSON.stringify(cand.stages?.ar?.checklistState || cand.stageData?.ar?.checklist || {});
+
+  // Stage 2: Pre-Screening / Interview Updates
+  row[29] = cand.stages?.ps?.plannedDate || "";
+  row[30] = cand.stages?.ps?.actualDate || "";
+  row[31] = cand.stages?.ps?.status || "Pending";
+  row[32] = cand.stages?.ps?.delayDays || 0;
+  row[33] = cand.stageData?.ps?.screeningResult || "";
+  row[34] = cand.stageData?.ps?.screeningNotes || "";
+  row[35] = cand.rescheduledDate || "";
+  row[36] = cand.interviewStatus || "Active";
+  row[37] = JSON.stringify(cand.stages?.ps?.checklistState || cand.stageData?.ps?.checklist || {});
+
+  // Stage 3: Confirmation Call
+  row[38] = cand.stages?.cc?.plannedDate || "";
+  row[39] = cand.stages?.cc?.actualDate || "";
+  row[40] = cand.stages?.cc?.status || "Pending";
+  row[41] = cand.stages?.cc?.delayDays || 0;
+  row[42] = cand.stageData?.cc?.notes || "";
+  row[43] = JSON.stringify(cand.stages?.cc?.checklistState || cand.stageData?.cc?.checklist || {});
+
+  // Stage 4: Joining
+  row[44] = cand.stages?.jo?.plannedDate || "";
+  row[45] = cand.stages?.jo?.actualDate || "";
+  row[46] = cand.stages?.jo?.status || "Pending";
+  row[47] = cand.stages?.jo?.delayDays || 0;
+  row[48] = cand.stageData?.jo?.offeredSalary || "";
+  row[49] = cand.stageData?.jo?.confirmedJoiningDate || "";
+  row[50] = cand.stageData?.jo?.uniformSize || "";
+  row[51] = cand.stageData?.jo?.notes || "";
+  row[52] = JSON.stringify(cand.stages?.jo?.checklistState || cand.stageData?.jo?.checklist || {});
+
+  // Stage 5: Documentation & KYC
+  row[53] = cand.stages?.doc?.plannedDate || "";
+  row[54] = cand.stages?.doc?.actualDate || "";
+  row[55] = cand.stages?.doc?.status || "Pending";
+  row[56] = cand.stages?.doc?.delayDays || 0;
+  row[57] = cand.personalDetails?.dateOfBirth || cand.dob || "";
+  row[58] = cand.personalDetails?.gender || cand.gender || "";
+  row[59] = cand.personalDetails?.bloodGroup || "";
+  row[60] = cand.personalDetails?.aadharCardNumber || "";
+  row[61] = cand.personalDetails?.panNumber || "";
+  row[62] = cand.personalDetails?.permanentAddress || "";
+  row[63] = cand.personalDetails?.currentAddress || "";
+  row[64] = cand.personalDetails?.fatherName || "";
+  row[65] = cand.personalDetails?.motherName || "";
+  row[66] = cand.personalDetails?.emergencyContactName || "";
+  row[67] = cand.personalDetails?.relationship || "";
+  row[68] = cand.personalDetails?.emergencyContactNumber || "";
+  row[69] = cand.personalDetails?.numberOfSiblings || "";
+  row[70] = cand.personalDetails?.bankName || "";
+  row[71] = cand.personalDetails?.branch || "";
+  row[72] = cand.personalDetails?.accountNumber || "";
+  row[73] = cand.personalDetails?.ifscCode || "";
+  row[74] = cand.personalDetails?.primaryHobbies || "";
+  row[75] = cand.personalDetails?.dietaryPreference || "";
+  row[76] = cand.stageData?.doc?.notes || "";
+  row[77] = JSON.stringify(cand.stages?.doc?.checklistState || cand.stageData?.doc?.checklist || {});
+
+  // Stage 6: Onboarding
+  row[78] = cand.stages?.ob?.plannedDate || "";
+  row[79] = cand.stages?.ob?.actualDate || "";
+  row[80] = cand.stages?.ob?.status || "Pending";
+  row[81] = cand.stages?.ob?.delayDays || 0;
+  row[82] = cand.stageData?.ob?.assignedEmployeeId || "";
+  row[83] = cand.stageData?.ob?.mentorName || "";
+  row[84] = cand.stageData?.ob?.notes || "";
+  row[85] = JSON.stringify(cand.stages?.ob?.checklistState || cand.stageData?.ob?.checklist || {});
+
+  // JSON and metadata
+  row[86] = JSON.stringify(cand.stageData || {});
+  row[87] = cand.createdAt || now;
+  row[88] = cand.updatedAt || now;
+
+  return row;
+}
+
 export async function createFmsCandidate(
   input: Partial<FmsCandidate> & { fullName: string; phone: string }
 ): Promise<{ success: boolean; id: string; fmsId: string }> {
   const existing = await getAllFmsCandidates();
-  const nextNum = existing.length + 1;
-  const id = input.id || `CAND-${String(nextNum).padStart(4, "0")}`;
-  const fmsId = `FMS-${Math.random().toString(16).slice(2, 10)}`;
+  let maxSeq = 0;
+  for (const c of existing) {
+    const match = c.id.match(/^CAND-(\d+)$/i);
+    if (match) {
+      const num = parseInt(match[1], 10);
+      if (!isNaN(num) && num > maxSeq) maxSeq = num;
+    }
+  }
+  const id = input.id || `CAND-${String(maxSeq + 1).padStart(4, "0")}`;
+  const fmsId = input.fmsId || `FMS-${Math.random().toString(16).slice(2, 10)}`;
   const now = new Date().toISOString();
 
-  const newRow = [
-    fmsId,
+  const cand: FmsCandidate = {
+    currentStage: "Application Received",
+    status: "Active",
+    interviewStatus: "Active",
+    archived: false,
+    brand: "ahl",
+    stageData: {
+      ar: { plannedDate: now.slice(0, 10), actualDate: "", checklist: {} },
+    },
+    stages: {
+      ar: { plannedDate: now.slice(0, 10), status: "Pending", checklistState: {}, fieldValues: {} },
+    },
+    createdAt: now,
+    updatedAt: now,
+    ...input,
     id,
-    input.fullName,
-    input.phone,
-    input.currentStage || "Application Received",
-    input.status || "Active",
-    input.interviewStatus || "Active",
-    "FALSE", // Archived
-    "", // Archive Reason
-    JSON.stringify(input.stageData || {}),
-    input.requisitionId || "",
-    now, // Updated At
-    now, // Created At
-  ];
+    fmsId,
+    fullName: input.fullName,
+    phone: input.phone,
+    whatsapp: input.whatsapp || input.phone,
+    email: input.email || "",
+    personalDetails: input.personalDetails || {},
+  };
 
-  await appendFmsValues("Candidate FMS!A:M", [newRow]);
+  const row = candidateToFmsRow(cand);
+  await appendFmsValues("Candidate FMS!A:CK", [row]);
   return { success: true, id, fmsId };
 }
 
@@ -307,35 +434,71 @@ export async function updateFmsCandidate(
   id: string,
   updates: Partial<FmsCandidate>
 ): Promise<{ success: boolean }> {
-  const fmsRows = await getFmsValues("Candidate FMS!A:M");
-  if (!fmsRows || fmsRows.length <= 1) return { success: false };
+  const rows = await getFmsValues("Candidate FMS!A:B");
+  if (!rows || rows.length <= 1) return { success: false };
 
-  const idCol = 1; // Candidate ID is index 1
   let targetRowIndex = -1;
-
-  for (let i = 1; i < fmsRows.length; i++) {
-    if (clean(fmsRows[i][idCol]) === id || clean(fmsRows[i][0]) === id) {
-      targetRowIndex = i + 1; // 1-indexed
+  for (let i = 1; i < rows.length; i++) {
+    if (clean(rows[i][0]) === id || clean(rows[i][1]) === id) {
+      targetRowIndex = i + 1; // 1-indexed row number in sheet
       break;
     }
   }
 
   if (targetRowIndex === -1) return { success: false };
 
-  // Update stage or status if provided
-  if (updates.currentStage) {
-    await updateFmsValues(`Candidate FMS!E${targetRowIndex}`, [[updates.currentStage]]);
+  // Fetch all candidates to get current merged candidate object
+  const all = await getAllFmsCandidates();
+  const current = all.find((c) => c.id === id || c.fmsId === id);
+  if (!current) return { success: false };
+
+  const merged: FmsCandidate = {
+    ...current,
+    ...updates,
+    stages: { ...current.stages, ...(updates.stages || {}) },
+    stageData: { ...current.stageData, ...(updates.stageData || {}) },
+    personalDetails: { ...current.personalDetails, ...(updates.personalDetails || {}) },
+    updatedAt: new Date().toISOString(),
+  };
+
+  const updatedRow = candidateToFmsRow(merged);
+  await updateFmsValues(`Candidate FMS!A${targetRowIndex}:CK${targetRowIndex}`, [updatedRow]);
+  return { success: true };
+}
+
+export async function deleteFmsCandidate(id: string): Promise<{ success: boolean }> {
+  const ssId = getFmsDatabaseId();
+  const rows = await getFmsValues("Candidate FMS!A:B");
+  if (!rows || rows.length <= 1) return { success: false };
+
+  let targetIndex0Based = -1;
+  for (let i = 1; i < rows.length; i++) {
+    if (clean(rows[i][0]) === id || clean(rows[i][1]) === id) {
+      targetIndex0Based = i;
+      break;
+    }
   }
-  if (updates.status) {
-    await updateFmsValues(`Candidate FMS!F${targetRowIndex}`, [[updates.status]]);
-  }
-  if (updates.interviewStatus) {
-    await updateFmsValues(`Candidate FMS!G${targetRowIndex}`, [[updates.interviewStatus]]);
-  }
-  if (updates.stageData) {
-    await updateFmsValues(`Candidate FMS!J${targetRowIndex}`, [[JSON.stringify(updates.stageData)]]);
-  }
-  await updateFmsValues(`Candidate FMS!L${targetRowIndex}`, [[new Date().toISOString()]]);
+
+  if (targetIndex0Based === -1) return { success: false };
+
+  const url = `${SHEETS_BASE}/${ssId}:batchUpdate`;
+  await googleRequest<any>(url, {
+    method: "POST",
+    body: JSON.stringify({
+      requests: [
+        {
+          deleteDimension: {
+            range: {
+              sheetId: 0,
+              dimension: "ROWS",
+              startIndex: targetIndex0Based,
+              endIndex: targetIndex0Based + 1,
+            },
+          },
+        },
+      ],
+    }),
+  });
 
   return { success: true };
 }

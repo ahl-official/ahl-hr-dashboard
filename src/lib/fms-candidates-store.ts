@@ -16,6 +16,22 @@ import extractedData from "./fms-extracted-data.json" with { type: "json" };
 
 // In-memory cache for fast local access and mutations
 let cachedCandidates: FmsCandidate[] | null = null;
+let lastCandidatesFetchTime = 0;
+const CACHE_TTL_MS = 3000;
+
+export function invalidateFmsCandidatesCache() {
+  cachedCandidates = null;
+  lastCandidatesFetchTime = 0;
+}
+
+export function isTestRunner(): boolean {
+  return (
+    process.env.NODE_ENV === "test" ||
+    Boolean(process.env.VITEST) ||
+    process.execArgv.some((a) => a.includes("test")) ||
+    process.argv.some((a) => a.includes("test"))
+  );
+}
 
 function safeDoubleJsonParse<T = any>(value: unknown, fallback: T): T {
   if (!value) return fallback;
@@ -510,14 +526,35 @@ function parseCandidatesFromExtractedData(): FmsCandidate[] {
 }
 
 /**
- * Initializes and returns all candidates from cache or seed snapshot.
+ * Initializes and returns all candidates from live Google Sheets or cache.
  */
-export async function getFmsCandidatesStore(): Promise<FmsCandidate[]> {
-  if (cachedCandidates) {
+export async function getFmsCandidatesStore(forceRefresh = false): Promise<FmsCandidate[]> {
+  const isTestEnv = isTestRunner();
+  if (isTestEnv) {
+    if (!cachedCandidates) {
+      cachedCandidates = parseCandidatesFromExtractedData();
+    }
     return cachedCandidates;
   }
-  cachedCandidates = parseCandidatesFromExtractedData();
-  return cachedCandidates;
+
+  const now = Date.now();
+  if (cachedCandidates && !forceRefresh && (now - lastCandidatesFetchTime < CACHE_TTL_MS)) {
+    return cachedCandidates;
+  }
+
+  try {
+    const { getAllFmsCandidates } = await import("./fms-sheets.ts");
+    const live = await getAllFmsCandidates();
+    cachedCandidates = live;
+    lastCandidatesFetchTime = now;
+    return cachedCandidates;
+  } catch (err) {
+    console.warn("[fms-candidates-store] Live Google Sheets fetch failed, using memory cache:", err);
+    if (!cachedCandidates) {
+      cachedCandidates = [];
+    }
+    return cachedCandidates;
+  }
 }
 
 /**
@@ -629,8 +666,19 @@ export async function addFmsCandidateStore(input: AddCandidateInput): Promise<Fm
     updatedAt: today,
   };
 
+  const isTestEnv = isTestRunner();
+  if (!isTestEnv) {
+    try {
+      const { createFmsCandidate } = await import("./fms-sheets.ts");
+      await createFmsCandidate(newRecord);
+    } catch (err) {
+      console.warn("[fms-candidates-store] Could not sync new candidate to Google Sheets:", err);
+    }
+  }
+
   current.unshift(newRecord);
   cachedCandidates = current;
+  lastCandidatesFetchTime = Date.now();
 
   return newRecord;
 }
@@ -652,6 +700,18 @@ export async function updateFmsCandidateStore(
     updatedAt: new Date().toISOString().slice(0, 10),
   };
   cachedCandidates = current;
+  lastCandidatesFetchTime = Date.now();
+
+  const isTestEnv = isTestRunner();
+  if (!isTestEnv) {
+    try {
+      const { updateFmsCandidate } = await import("./fms-sheets.ts");
+      await updateFmsCandidate(id, current[index]);
+    } catch (err) {
+      console.warn(`[fms-candidates-store] Could not sync update for ${id} to Google Sheets:`, err);
+    }
+  }
+
   return current[index];
 }
 
@@ -789,6 +849,18 @@ export async function advanceCandidateStageStore(
   }
 
   cachedCandidates = current;
+  lastCandidatesFetchTime = Date.now();
+
+  const isTestEnv = isTestRunner();
+  if (!isTestEnv) {
+    try {
+      const { updateFmsCandidate } = await import("./fms-sheets.ts");
+      await updateFmsCandidate(cand.id, cand);
+    } catch (err) {
+      console.warn(`[fms-candidates-store] Could not sync advance for ${cand.id} to Google Sheets:`, err);
+    }
+  }
+
   return cand;
 }
 
@@ -856,6 +928,18 @@ export async function revertCandidateStageStore(
   }
 
   cachedCandidates = current;
+  lastCandidatesFetchTime = Date.now();
+
+  const isTestEnv = isTestRunner();
+  if (!isTestEnv) {
+    try {
+      const { updateFmsCandidate } = await import("./fms-sheets.ts");
+      await updateFmsCandidate(cand.id, cand);
+    } catch (err) {
+      console.warn(`[fms-candidates-store] Could not sync revert for ${cand.id} to Google Sheets:`, err);
+    }
+  }
+
   return cand;
 }
 
@@ -897,6 +981,18 @@ export async function toggleCandidateChecklistStore(
 
   cand.updatedAt = new Date().toISOString().slice(0, 10);
   cachedCandidates = current;
+  lastCandidatesFetchTime = Date.now();
+
+  const isTestEnv = isTestRunner();
+  if (!isTestEnv) {
+    try {
+      const { updateFmsCandidate } = await import("./fms-sheets.ts");
+      await updateFmsCandidate(cand.id, cand);
+    } catch (err) {
+      console.warn(`[fms-candidates-store] Could not sync checklist toggle for ${cand.id} to Google Sheets:`, err);
+    }
+  }
+
   return cand;
 }
 
@@ -923,6 +1019,31 @@ export async function restoreCandidateStore(id: string): Promise<FmsCandidate | 
     archived: false,
     archiveReason: "",
   });
+}
+
+/**
+ * Completely removes a candidate from Google Sheets and the local store.
+ */
+export async function deleteFmsCandidateStore(id: string): Promise<boolean> {
+  const current = await getFmsCandidatesStore();
+  const index = current.findIndex((c) => c.id === id || c.fmsId === id);
+  if (index !== -1) {
+    current.splice(index, 1);
+    cachedCandidates = current;
+    lastCandidatesFetchTime = Date.now();
+  }
+
+  const isTestEnv = isTestRunner();
+  if (!isTestEnv) {
+    try {
+      const { deleteFmsCandidate } = await import("./fms-sheets.ts");
+      await deleteFmsCandidate(id);
+    } catch (err) {
+      console.warn(`[fms-candidates-store] Could not delete candidate ${id} from Google Sheets:`, err);
+    }
+  }
+
+  return true;
 }
 
 export interface EnrichedInterview extends FmsInterviewRecord {

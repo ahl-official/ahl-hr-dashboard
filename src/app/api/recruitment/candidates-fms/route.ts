@@ -14,11 +14,13 @@ import {
   getInterviewsStats,
   scheduleInterviewStore,
   logInterviewOutcomeStore,
+  deleteFmsCandidateStore,
 } from "@/lib/fms-candidates-store";
 
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
+    const forceRefresh = searchParams.get("refresh") === "true" || searchParams.get("refresh") === "1";
     const interviewsDate = searchParams.get("interviewsDate");
 
     if (interviewsDate !== null) {
@@ -44,7 +46,7 @@ export async function GET(req: Request) {
     const source = searchParams.get("source")?.trim();
 
     const [allCandidates, stats] = await Promise.all([
-      getFmsCandidatesStore(),
+      getFmsCandidatesStore(forceRefresh),
       getFmsCandidatesStats(),
     ]);
 
@@ -175,6 +177,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, data: restored });
     }
 
+    // Delete candidate action
+    if (body.action === "delete" && body.id) {
+      await deleteFmsCandidateStore(body.id);
+      return NextResponse.json({ success: true, message: `Candidate ${body.id} deleted` });
+    }
+
     // Check if this is an update action
     if (body.action === "update" && body.id) {
       const updated = await updateFmsCandidateStore(body.id, body.updates || {});
@@ -295,6 +303,34 @@ export async function PATCH(req: Request) {
     console.error("Error in PATCH /api/recruitment/candidates-fms:", error);
     return NextResponse.json(
       { success: false, message: error.message || "Failed to update candidate" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(req: Request) {
+  try {
+    const body = await req.json();
+    const { id, ids } = body;
+
+    if (id) {
+      await deleteFmsCandidateStore(id);
+    } else if (Array.isArray(ids) && ids.length > 0) {
+      for (const singleId of ids) {
+        await deleteFmsCandidateStore(singleId);
+      }
+    } else {
+      return NextResponse.json(
+        { success: false, message: "id or ids is required" },
+        { status: 400 }
+      );
+    }
+
+    return NextResponse.json({ success: true, message: "Candidate(s) deleted" });
+  } catch (error: any) {
+    console.error("Error in DELETE /api/recruitment/candidates-fms:", error);
+    return NextResponse.json(
+      { success: false, message: error.message || "Failed to delete candidate" },
       { status: 500 }
     );
   }
