@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
   Users,
   ChevronLeft,
@@ -11,6 +11,13 @@ import {
   AlertTriangle,
   Clock,
   ShieldAlert,
+  Edit3,
+  MoreHorizontal,
+  ChevronDown,
+  User,
+  FileText,
+  FileCheck,
+  UserCheck,
 } from "lucide-react";
 import { EmployeeSummary, MeetingRecord } from "@/types";
 import { initials, formatTenure, formatDisplayDate, getTodayLocalIsoDate } from "@/lib/date-utils";
@@ -19,16 +26,41 @@ interface EmployeeDirectoryProps {
   employees: EmployeeSummary[];
   meetings?: MeetingRecord[];
   onSelectEmployee: (employee: EmployeeSummary) => void;
+  onEditEmployee?: (employee: EmployeeSummary) => void;
+  onOpenMeeting?: (employeeKey: string, prefill?: any) => void;
+  onOpenDocument?: (employeeKey: string) => void;
+  onOpenStatus?: (employeeKey: string) => void;
 }
 
 export function EmployeeDirectory({
   employees,
   meetings = [],
   onSelectEmployee,
+  onEditEmployee,
+  onOpenMeeting,
+  onOpenDocument,
+  onOpenStatus,
 }: EmployeeDirectoryProps) {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [directoryFilter, setDirectoryFilter] = useState<"all" | "red_flags" | "action_pending">("all");
+  const [openActionsKey, setOpenActionsKey] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
   const pageSize = 12;
+
+  // Close actions dropdown on click outside
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setOpenActionsKey(null);
+      }
+    }
+    if (openActionsKey) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [openActionsKey]);
 
   const todayStr = getTodayLocalIsoDate();
 
@@ -254,9 +286,21 @@ export function EmployeeDirectory({
                         )}
                       </td>
 
-                      {/* Action Buttons: Profile */}
+                      {/* Action Buttons: Edit, Profile, & Actions Dropdown Menu */}
                       <td className="py-2.5 px-4 pr-6 text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          {/* Direct Quick Edit Button */}
+                          {onEditEmployee && (
+                            <button
+                              onClick={() => onEditEmployee(emp)}
+                              className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 transition"
+                              aria-label={`Edit ${emp.fullName}`}
+                              title="Edit Employee Details"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+
                           {/* Profile Button */}
                           <button
                             onClick={() => onSelectEmployee(emp)}
@@ -266,6 +310,124 @@ export function EmployeeDirectory({
                           >
                             <ArrowRight className="w-4 h-4" />
                           </button>
+
+                          {/* Actions Dropdown Toggle Button */}
+                          <div className="relative">
+                            <button
+                              onClick={() =>
+                                setOpenActionsKey(openActionsKey === emp.employeeKey ? null : emp.employeeKey)
+                              }
+                              className={`inline-flex items-center justify-center w-8 h-8 rounded-lg transition ${
+                                openActionsKey === emp.employeeKey
+                                  ? "bg-indigo-50 text-indigo-700 ring-2 ring-indigo-200"
+                                  : "text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+                              }`}
+                              aria-label="Open Actions Menu"
+                              title="Actions"
+                            >
+                              <MoreHorizontal className="w-4 h-4" />
+                            </button>
+
+                            {/* Actions Dropdown Menu */}
+                            {openActionsKey === emp.employeeKey && (
+                              <div
+                                ref={menuRef}
+                                className={`absolute right-0 w-52 bg-white rounded-xl shadow-xl border border-slate-200 p-1.5 z-50 text-left animate-in fade-in zoom-in-95 duration-150 ${
+                                  currentBatch.indexOf(emp) >= currentBatch.length - 3 && currentBatch.length > 3
+                                    ? "bottom-full mb-1"
+                                    : "top-full mt-1"
+                                }`}
+                              >
+                                <div className="px-2.5 py-1.5 border-b border-slate-100 mb-1">
+                                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                    Actions
+                                  </p>
+                                  <p className="text-xs font-semibold text-navy-DEFAULT truncate">
+                                    {emp.fullName}
+                                  </p>
+                                </div>
+
+                                {onEditEmployee && (
+                                  <button
+                                    onClick={() => {
+                                      setOpenActionsKey(null);
+                                      onEditEmployee(emp);
+                                    }}
+                                    className="w-full flex items-center gap-2 px-2.5 py-2 text-xs font-semibold rounded-lg text-indigo-600 hover:bg-indigo-50 transition text-left"
+                                  >
+                                    <Edit3 className="w-4 h-4 text-indigo-600 shrink-0" />
+                                    <span>Edit Employee</span>
+                                  </button>
+                                )}
+
+                                <button
+                                  onClick={() => {
+                                    setOpenActionsKey(null);
+                                    onSelectEmployee(emp);
+                                  }}
+                                  className="w-full flex items-center gap-2 px-2.5 py-2 text-xs font-medium rounded-lg text-slate-700 hover:bg-slate-100 transition text-left"
+                                >
+                                  <User className="w-4 h-4 text-slate-400 shrink-0" />
+                                  <span>View Profile Dossier</span>
+                                </button>
+
+                                {onOpenMeeting && (
+                                  <button
+                                    onClick={() => {
+                                      setOpenActionsKey(null);
+                                      onOpenMeeting(emp.employeeKey, { meetingType: "General" });
+                                    }}
+                                    className="w-full flex items-center gap-2 px-2.5 py-2 text-xs font-medium rounded-lg text-slate-700 hover:bg-slate-100 transition text-left"
+                                  >
+                                    <FileText className="w-4 h-4 text-slate-400 shrink-0" />
+                                    <span>Record Meeting</span>
+                                  </button>
+                                )}
+
+                                {onOpenMeeting && (
+                                  <button
+                                    onClick={() => {
+                                      setOpenActionsKey(null);
+                                      onOpenMeeting(emp.employeeKey, {
+                                        meetingType: "Warning",
+                                        warningGiven: "Yes",
+                                      });
+                                    }}
+                                    className="w-full flex items-center gap-2 px-2.5 py-2 text-xs font-medium rounded-lg text-rose-700 hover:bg-rose-50 transition text-left"
+                                  >
+                                    <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0" />
+                                    <span>Log Red Flag</span>
+                                  </button>
+                                )}
+
+                                {onOpenDocument && (
+                                  <button
+                                    onClick={() => {
+                                      setOpenActionsKey(null);
+                                      onOpenDocument(emp.employeeKey);
+                                    }}
+                                    className="w-full flex items-center gap-2 px-2.5 py-2 text-xs font-medium rounded-lg text-slate-700 hover:bg-slate-100 transition text-left"
+                                  >
+                                    <FileCheck className="w-4 h-4 text-slate-400 shrink-0" />
+                                    <span>Upload Document</span>
+                                  </button>
+                                )}
+
+                                {onOpenStatus && (
+                                  <button
+                                    onClick={() => {
+                                      setOpenActionsKey(null);
+                                      onOpenStatus(emp.employeeKey);
+                                    }}
+                                    className="w-full flex items-center gap-2 px-2.5 py-2 text-xs font-medium rounded-lg text-slate-700 hover:bg-slate-100 transition text-left"
+                                  >
+                                    <UserCheck className="w-4 h-4 text-slate-400 shrink-0" />
+                                    <span>Update Status</span>
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </td>
                     </tr>
@@ -356,6 +518,15 @@ export function EmployeeDirectory({
                       <span>View Dossier</span>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </button>
+                    {onEditEmployee && (
+                      <button
+                        onClick={() => onEditEmployee(emp)}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-white border border-slate-200 hover:bg-indigo-50 hover:border-indigo-200 text-slate-700 hover:text-indigo-700 font-bold text-xs transition"
+                      >
+                        <Edit3 className="w-3.5 h-3.5 text-indigo-600" />
+                        <span>Edit</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               );

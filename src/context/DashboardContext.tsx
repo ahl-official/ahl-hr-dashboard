@@ -51,8 +51,9 @@ function useDashboardState() {
     employmentStatus: "Active", // Default Active
   });
 
-  // Modal & Drawer States
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeSummary | null>(null);
+  const [editingEmployee, setEditingEmployee] = useState<EmployeeSummary | null>(null);
+  const [editEmployeeModalOpen, setEditEmployeeModalOpen] = useState<boolean>(false);
   const [meetingModalOpen, setMeetingModalOpen] = useState<boolean>(false);
   const [meetingPrefill, setMeetingPrefill] = useState<MeetingPrefill>(null);
   const [documentModalOpen, setDocumentModalOpen] = useState<boolean>(false);
@@ -296,6 +297,45 @@ function useDashboardState() {
     }
   };
 
+  const handleSaveEmployee = async (
+    payload: Partial<EmployeeSummary> & { employeeKey: string }
+  ): Promise<boolean> => {
+    try {
+      const res = await fetch(`/api/employees/${payload.employeeKey}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || "Failed to update employee details");
+
+      const updated = data.data;
+
+      // Update employee directly in state
+      setEmployees((prev) =>
+        prev.map((emp) =>
+          emp.employeeKey === payload.employeeKey ? { ...emp, ...updated } : emp
+        )
+      );
+
+      // Update selectedEmployee if it's currently open
+      if (selectedEmployee && selectedEmployee.employeeKey === payload.employeeKey) {
+        setSelectedEmployee((prev) => (prev ? { ...prev, ...updated } : null));
+      }
+
+      showToast(`Employee ${updated.fullName || ""} updated successfully`, "success");
+      return true;
+    } catch (err: any) {
+      showToast(err.message || "Failed to update employee", "error");
+      return false;
+    }
+  };
+
+  const openEditEmployee = (emp: EmployeeSummary) => {
+    setEditingEmployee(emp);
+    setEditEmployeeModalOpen(true);
+  };
+
   const handleEmployeeCreated = (newEmp: EmployeeSummary) => {
     setEmployees((prev) => [newEmp, ...prev]);
     showToast(`New employee ${newEmp.fullName} created!`, "success");
@@ -306,6 +346,9 @@ function useDashboardState() {
     newThisMonth, averageTenure, departmentCount, companyCount,
     birthdays, milestones7, milestones15, milestones30, milestonesAll, activeCount,
     selectedEmployee, setSelectedEmployee,
+    editingEmployee, setEditingEmployee,
+    editEmployeeModalOpen, setEditEmployeeModalOpen,
+    openEditEmployee, handleSaveEmployee,
     meetingModalOpen, setMeetingModalOpen, meetingPrefill, setMeetingPrefill,
     documentModalOpen, setDocumentModalOpen, documentPrefillEmployeeKey, setDocumentPrefillEmployeeKey,
     statusModalOpen, setStatusModalOpen, statusPrefillEmployeeKey, setStatusPrefillEmployeeKey,

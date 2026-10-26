@@ -11,6 +11,7 @@ import { MeetingModal } from "@/components/modals/MeetingModal";
 import { DocumentModal } from "@/components/modals/DocumentModal";
 import { StatusModal } from "@/components/modals/StatusModal";
 import { AllBirthdaysModal } from "@/components/modals/AllBirthdaysModal";
+import { EditEmployeeModal } from "@/components/modals/EditEmployeeModal";
 
 const TITLES: Record<string, string> = {
   overview: "Overview & Employees",
@@ -102,6 +103,9 @@ function Frame({ children }: { children: React.ReactNode }) {
           d.setStatusPrefillEmployeeKey(empKey);
           d.setStatusModalOpen(true);
         }}
+        onEditEmployee={(emp) => {
+          d.openEditEmployee(emp);
+        }}
       />
 
       <MeetingModal
@@ -132,6 +136,17 @@ function Frame({ children }: { children: React.ReactNode }) {
         isOpen={d.allBirthdaysModalOpen}
         onClose={() => d.setAllBirthdaysModalOpen(false)}
         birthdays={d.birthdays}
+      />
+      <EditEmployeeModal
+        isOpen={d.editEmployeeModalOpen}
+        onClose={() => {
+          d.setEditEmployeeModalOpen(false);
+          d.setEditingEmployee(null);
+        }}
+        employee={d.editingEmployee}
+        departments={d.departments}
+        companies={d.companies}
+        onSave={d.handleSaveEmployee}
       />
     </Shell>
   );

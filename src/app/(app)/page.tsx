@@ -34,7 +34,21 @@ export default function OverviewPage() {
         onOpenRecordMeeting={(prefill) => d.openMeeting(prefill)}
         onOpenAllBirthdays={() => d.setAllBirthdaysModalOpen(true)}
       />
-      <EmployeeDirectory employees={d.filteredEmployees} meetings={d.activeMeetings} onSelectEmployee={d.setSelectedEmployee} />
+      <EmployeeDirectory
+        employees={d.filteredEmployees}
+        meetings={d.activeMeetings}
+        onSelectEmployee={d.setSelectedEmployee}
+        onEditEmployee={d.openEditEmployee}
+        onOpenMeeting={(empKey, prefill) => d.openMeeting({ employeeKey: empKey, ...prefill })}
+        onOpenDocument={(empKey) => {
+          d.setDocumentPrefillEmployeeKey(empKey);
+          d.setDocumentModalOpen(true);
+        }}
+        onOpenStatus={(empKey) => {
+          d.setStatusPrefillEmployeeKey(empKey);
+          d.setStatusModalOpen(true);
+        }}
+      />
     </>
   );
 }

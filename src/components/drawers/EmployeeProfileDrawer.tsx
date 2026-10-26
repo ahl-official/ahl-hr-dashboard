@@ -20,6 +20,7 @@ import {
   MessageCircle,
   Sparkles,
   Copy,
+  Edit3,
 } from "lucide-react";
 import { EmployeeSummary, DocumentRecord, MeetingRecord } from "@/types";
 import { initials, formatExactTenure, formatDisplayDate, getTodayLocalIsoDate } from "@/lib/date-utils";
@@ -33,6 +34,7 @@ interface EmployeeProfileDrawerProps {
   onOpenMeeting: (employeeKey: string, prefill?: any) => void;
   onOpenDocument: (employeeKey: string) => void;
   onOpenStatus: (employeeKey: string) => void;
+  onEditEmployee?: (employee: EmployeeSummary) => void;
 }
 
 export function EmployeeProfileDrawer({
@@ -43,6 +45,7 @@ export function EmployeeProfileDrawer({
   onOpenMeeting,
   onOpenDocument,
   onOpenStatus,
+  onEditEmployee,
 }: EmployeeProfileDrawerProps) {
   const [unmasked, setUnmasked] = useState(false);
   const [discInfo, setDiscInfo] = useState<any | null>(null);
@@ -186,6 +189,17 @@ export function EmployeeProfileDrawer({
           </div>
 
           <div className="flex items-center gap-2">
+            {onEditEmployee && (
+              <button
+                onClick={() => onEditEmployee(employee)}
+                className="flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition shadow-xs"
+                title="Edit master employee details"
+              >
+                <Edit3 className="w-3.5 h-3.5 text-indigo-600" />
+                <span>Edit</span>
+              </button>
+            )}
+
             {/* Sensitive Data Reveal Toggle */}
             <button
               onClick={() => setUnmasked(!unmasked)}
@@ -336,8 +350,19 @@ export function EmployeeProfileDrawer({
             </div>
           )}
 
-          {/* Quick Action Buttons (4 Action Grid) */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {/* Quick Action Buttons (5 Action Grid) */}
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+            {onEditEmployee && (
+              <button
+                onClick={() => onEditEmployee(employee)}
+                className="flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition shadow-xs col-span-2 sm:col-span-1"
+                title="Edit master profile details"
+              >
+                <Edit3 className="w-3.5 h-3.5" />
+                <span>Edit</span>
+              </button>
+            )}
+
             <button
               onClick={() => onOpenMeeting(employee.employeeKey, { meetingType: "General" })}
               className="flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl bg-indigo-50 hover:bg-indigo-600 text-indigo-700 hover:text-white font-bold text-xs transition border border-indigo-200"

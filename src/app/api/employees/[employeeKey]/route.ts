@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getEmployeeByKey } from "@/lib/store";
+import { getEmployeeByKey, updateEmployeeRecord } from "@/lib/store";
 
 import { errorStatus } from "@/lib/validate";
 
@@ -22,6 +22,23 @@ export async function GET(
   } catch (error: any) {
     return NextResponse.json(
       { success: false, error: error?.message || "Internal server error" },
+      { status: errorStatus(error) }
+    );
+  }
+}
+
+export async function PUT(
+  req: NextRequest,
+  { params }: { params: Promise<{ employeeKey: string }> }
+) {
+  try {
+    const { employeeKey } = await params;
+    const payload = await req.json();
+    const updated = await updateEmployeeRecord(employeeKey, payload);
+    return NextResponse.json({ success: true, data: updated });
+  } catch (error: any) {
+    return NextResponse.json(
+      { success: false, error: error?.message || "Failed to update employee" },
       { status: errorStatus(error) }
     );
   }

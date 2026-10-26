@@ -285,6 +285,133 @@ export async function setEmployeePdfLink(rowNumber: number, link: string) {
   invalidateCache();
 }
 
+export async function updateEmployeeRecord(
+  employeeKey: string,
+  payload: any
+): Promise<EmployeeSummary> {
+  const snapshot = await loadSnapshot(true);
+  const employee = snapshot.employees.find((item) => item.employeeKey === clean(employeeKey));
+  if (!employee) throw new ValidationError("Selected employee was not found.", 404);
+
+  const rawRows = await getValues("Employees!A:AX");
+  if (!rawRows.length) throw new ValidationError("Employees sheet is empty.", 500);
+
+  const headers = rawRows[0].map(clean);
+  const map = headerMap(headers);
+  const keyIndex = map.get("employeekey");
+  const blankIndex = headers.findIndex((h) => !h);
+
+  let rowIndex = rawRows.slice(1).findIndex((r) => {
+    const shifted = blankIndex >= 0 && clean(r[blankIndex]) !== "";
+    const adjustedKeyIndex =
+      shifted && blankIndex >= 0 && keyIndex !== undefined && keyIndex > blankIndex
+        ? keyIndex - 1
+        : keyIndex;
+    return (
+      (adjustedKeyIndex !== undefined && clean(r[adjustedKeyIndex]) === employeeKey) ||
+      (keyIndex !== undefined && clean(r[keyIndex]) === employeeKey)
+    );
+  });
+
+  if (rowIndex === -1) {
+    if (employee.rowNumber && employee.rowNumber <= rawRows.length) {
+      rowIndex = employee.rowNumber - 2;
+    } else {
+      throw new ValidationError(`Employee with key ${employeeKey} not found in sheet.`, 404);
+    }
+  }
+
+  const actualRowNumber = rowIndex + 2;
+  const existingRow = [...(rawRows[rowIndex + 1] || [])];
+  while (existingRow.length < headers.length) existingRow.push("");
+
+  const shifted = blankIndex >= 0 && clean(existingRow[blankIndex]) !== "";
+
+  for (const [label, value] of [["Date of joining", payload.doj], ["Date of birth", payload.dob]] as const) {
+    if (value && !isIsoDate(value)) throw new ValidationError(`${label} must be a valid date (YYYY-MM-DD).`);
+  }
+  for (const [label, value] of [["Company email", payload.companyEmail], ["Personal email", payload.personalEmail]] as const) {
+    if (value && !isEmail(value)) throw new ValidationError(`${label} is not a valid email address.`);
+  }
+
+  const fieldUpdates = new Map<string, unknown>();
+  if (payload.fullName !== undefined) fieldUpdates.set("fullname", clean(payload.fullName));
+  if (payload.employeeId !== undefined) fieldUpdates.set("employeeid", clean(payload.employeeId));
+  if (payload.company !== undefined) fieldUpdates.set("company", clean(payload.company));
+  if (payload.department !== undefined) fieldUpdates.set("department", clean(payload.department));
+  if (payload.designation !== undefined) {
+    fieldUpdates.set("currentdesignation", clean(payload.designation));
+    fieldUpdates.set("designation", clean(payload.designation));
+  }
+  if (payload.manager !== undefined) {
+    fieldUpdates.set("reportingmanager", clean(payload.manager));
+    fieldUpdates.set("manager", clean(payload.manager));
+  }
+  if (payload.doj !== undefined) {
+    const val = dateSerial(payload.doj);
+    fieldUpdates.set("dateofjoiningdoj", val);
+    fieldUpdates.set("dateofjoining", val);
+    fieldUpdates.set("doj", val);
+  }
+  if (payload.dob !== undefined) {
+    const val = dateSerial(payload.dob);
+    fieldUpdates.set("dateofbirth", val);
+    fieldUpdates.set("dob", val);
+  }
+  if (payload.gender !== undefined) fieldUpdates.set("gender", clean(payload.gender));
+  if (payload.mobile !== undefined) {
+    fieldUpdates.set("mobilenumber", clean(payload.mobile));
+    fieldUpdates.set("phonenumber", clean(payload.mobile));
+    fieldUpdates.set("mobile", clean(payload.mobile));
+  }
+  if (payload.companyEmail !== undefined) {
+    fieldUpdates.set("companyemailid", clean(payload.companyEmail));
+    fieldUpdates.set("companyemail", clean(payload.companyEmail));
+  }
+  if (payload.personalEmail !== undefined) {
+    fieldUpdates.set("personalemailid", clean(payload.personalEmail));
+    fieldUpdates.set("personalemail", clean(payload.personalEmail));
+  }
+  if (payload.lastIncrementYear !== undefined) {
+    fieldUpdates.set("lastincrementyear", clean(payload.lastIncrementYear));
+    fieldUpdates.set("lastsalaryincrementyear", clean(payload.lastIncrementYear));
+  }
+
+  if (Array.isArray(payload.masterFields)) {
+    payload.masterFields.forEach((mf: any) => {
+      if (mf?.label) {
+        fieldUpdates.set(normalizeHeader(mf.label), clean(mf.value));
+      }
+    });
+  }
+
+  headers.forEach((header, colIndex) => {
+    const norm = normalizeHeader(header);
+    if (!norm || norm === "employeekey" || norm === "timestamp") return;
+    if (fieldUpdates.has(norm)) {
+      const adjustedCol = shifted && blankIndex >= 0 && colIndex > blankIndex ? colIndex - 1 : colIndex;
+      existingRow[adjustedCol] = fieldUpdates.get(norm);
+    }
+  });
+
+  const lastCol = columnLetter(existingRow.length - 1);
+  await updateValues(`Employees!A${actualRowNumber}:${lastCol}${actualRowNumber}`, [existingRow]);
+
+  await appendAudit({
+    employee,
+    actionType: "UPDATE_EMPLOYEE",
+    recordType: "Employee",
+    recordId: employeeKey,
+    details: `Updated details for ${clean(payload.fullName) || employee.fullName}`,
+    performedBy: clean(payload.updatedBy) || "HR User",
+  });
+
+  invalidateCache();
+  const refreshed = await loadSnapshot(true);
+  return refreshed.employees.find((e) => e.employeeKey === employeeKey) || employee;
+}
+
+
 export async function getAllMeetings() { return (await loadSnapshot()).meetings; }
 export async function addMeetingRecord(meeting: any): Promise<MeetingRecord> {
   const snapshot = await loadSnapshot(true), employee = snapshot.employees.find((item) => item.employeeKey === clean(meeting.employeeKey));
