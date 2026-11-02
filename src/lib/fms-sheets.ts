@@ -9,9 +9,14 @@ import type {
   FmsTraining,
   FmsLeave,
   FmsHoliday,
-  FmsPersonalAndBankDetails,
-  FmsCandidateStageTracking,
 } from "../types/fms.ts";
+import {
+  CANDIDATE_FMS_TAB,
+  CANDIDATE_FMS_LAST_COLUMN,
+  candidateFmsIndex,
+  candidateToRow,
+  rowToCandidateFields,
+} from "./candidate-fms-schema.ts";
 
 const FMS_SPREADSHEET_ID = process.env.HR_FMS_SPREADSHEET_ID || "15BDPmgFmIavjCkk9PKvWBFkhgsg64s3LGY3e1KW_wXM";
 const SHEETS_BASE = "https://sheets.googleapis.com/v4/spreadsheets";
@@ -125,22 +130,12 @@ export async function appendFmsValues(range: string, values: unknown[][]): Promi
 // 1. Candidate Recruitment FMS (`Candidate FMS` & `Applications`)
 // ──────────────────────────────────────────────────────────
 
-const STAGE_KEYS = [
-  { id: "ar", label: "Application Received" },
-  { id: "ps", label: "Pre-Screening" },
-  { id: "cc", label: "Confirmation Call" },
-  { id: "jo", label: "Joining" },
-  { id: "doc", label: "Documentation" },
-  { id: "ob", label: "Onboarding" },
-];
-
 export async function getAllFmsCandidates(): Promise<FmsCandidate[]> {
-  const [fmsRows, appRows] = await batchGetFmsValues(["Candidate FMS!A:ZZ", "Candidate Applications!A:ZZ"]);
+  const [fmsRows, appRows] = await batchGetFmsValues([`${CANDIDATE_FMS_TAB}!A:ZZ`, "Candidate Applications!A:ZZ"]);
 
   if (!fmsRows || fmsRows.length <= 1) return [];
 
-  const fmsHeaders = fmsRows[0].map(clean);
-  const fmsMap = headerMap(fmsHeaders);
+  const index = candidateFmsIndex(fmsRows[0]);
 
   const appMapById = new Map<string, Record<string, string>>();
   if (appRows && appRows.length > 1) {
@@ -160,110 +155,59 @@ export async function getAllFmsCandidates(): Promise<FmsCandidate[]> {
     }
   }
 
-  const getF = (row: unknown[], keys: string[]) => {
-    for (const k of keys) {
-      const idx = fmsMap.get(normalizeKey(k));
-      if (idx !== undefined && row[idx] !== undefined) return clean(row[idx]);
-    }
-    return "";
-  };
-
   const candidates: FmsCandidate[] = [];
 
   for (let i = 1; i < fmsRows.length; i++) {
-    const row = fmsRows[i];
-    const candidateId = getF(row, ["Candidate ID", "ID", "CandidateID"]);
-    const fmsId = getF(row, ["FMS ID", "FMSID"]);
-    if (!candidateId && !fmsId) continue;
+    const f = rowToCandidateFields(fmsRows[i], index);
+    if (!f.id && !f.fmsId) continue;
 
-    const id = candidateId || fmsId;
-    const appDetails = appMapById.get(id) || {};
-
-    const rawStageData = getF(row, ["Stage Data (JSON)", "StageDataJSON", "Stage Data"]);
-    const parsedStageData = parseJsonSafe<Record<string, any>>(rawStageData, {});
-
-
-    // Stage tracking dictionary
-    const stages: Record<string, FmsCandidateStageTracking> = {};
-    STAGE_KEYS.forEach((s) => {
-      const planned = getF(row, [`${s.label} Planned`]);
-      const actual = getF(row, [`${s.label} Actual`]);
-      const status = getF(row, [`${s.label} Status`]) || "Pending";
-      const delay = Number(getF(row, [`${s.label} Delay`])) || 0;
-      stages[s.id] = {
-        plannedDate: planned,
-        actualDate: actual,
-        status,
-        delayDays: delay,
-        checklistState: parsedStageData[s.id]?.checklistState || {},
-        fieldValues: parsedStageData[s.id]?.fieldValues || {},
-      };
-    });
-
-    const personalDetails: FmsPersonalAndBankDetails = {
-      dateOfBirth: getF(row, ["Date of Birth", "DOB"]) || appDetails.dateofbirth,
-      gender: getF(row, ["Gender"]) || appDetails.gender,
-      bloodGroup: getF(row, ["Blood Group"]),
-      aadharCardNumber: getF(row, ["Aadhar Card Number", "Aadhar"]),
-      panNumber: getF(row, ["PAN Number", "PAN"]),
-      permanentAddress: getF(row, ["Permanent Address"]),
-      currentAddress: getF(row, ["Current Address"]),
-      personalEmail: getF(row, ["Personal E-mail ID", "Personal Email", "Email"]) || appDetails.email,
-      fatherName: getF(row, ["Father's Name", "Father Name"]),
-      motherName: getF(row, ["Mother's Name", "Mother Name"]),
-      emergencyContactName: getF(row, ["Emergency Contact Name"]),
-      relationship: getF(row, ["Relationship"]),
-      emergencyContactNumber: getF(row, ["Emergency Contact Number"]),
-      numberOfSiblings: getF(row, ["Number of Siblings"]),
-      bankName: getF(row, ["Bank Name"]),
-      branch: getF(row, ["Branch"]),
-      accountNumber: getF(row, ["Account Number"]),
-      ifscCode: getF(row, ["IFSC Code"]),
-      primaryHobbies: getF(row, ["Primary Hobbies", "Hobbies"]),
-      dietaryPreference: getF(row, ["Dietary Preference"]),
-      vehicleOwnership: getF(row, ["Vehicle Ownership"]),
-      housingStatus: getF(row, ["Housing Status"]),
-    };
+    const id = f.id || f.fmsId!;
+    const app = appMapById.get(id) || {};
+    const pd = f.personalDetails || {};
 
     candidates.push({
+      ...f,
       id,
-      fmsId: fmsId || `FMS-${id}`,
-      fullName: getF(row, ["Full Name", "Name"]) || appDetails.fullname || "Unnamed Candidate",
-      phone: getF(row, ["Phone", "Mobile", "WhatsApp"]) || appDetails.whatsapp || appDetails.phone || "",
-      whatsapp: getF(row, ["WhatsApp", "Phone"]) || appDetails.whatsapp || "",
-      email: personalDetails.personalEmail || "",
-      gender: personalDetails.gender || "",
-      city: appDetails.city || "",
-      area: appDetails.area || "",
-      dob: personalDetails.dateOfBirth || "",
-      source: appDetails.source || "",
-      position: appDetails.positionappliedfor || getF(row, ["Position Applied For", "Position"]) || "",
-      experience: appDetails.experience || getF(row, ["Experience"]) || "",
-      education: appDetails.education || "",
-      currentCompany: appDetails.currentcompany || "",
-      currentDesignation: appDetails.currentdesignation || "",
-      currentSalary: appDetails.currentsalary || "",
-      expectedSalary: appDetails.expectedsalary || "",
-      noticePeriod: appDetails.noticeperiod || "",
-      skills: appDetails.skills || "",
-      resumeLink: appDetails.resumelink || getF(row, ["Resume Link"]) || "",
-      resumeFile: appDetails.resumefile || "",
-      currentStage: getF(row, ["Current Stage"]) || "Application Received",
-      status: getF(row, ["Status"]) || "Active",
-      interviewStatus: getF(row, ["Interview Status"]) || "Active",
-      archived: clean(getF(row, ["Archived"])).toLowerCase() === "true",
-      archiveReason: getF(row, ["Archive Reason"]),
-      stageData: parsedStageData,
-      stages,
-      personalDetails,
-      requisitionId: getF(row, ["Requisition ID"]),
-      brand: getF(row, ["Brand"]) || appDetails.brand || "ahl",
-      assignedTo: appDetails.assignedto || "",
-      followUpDate: appDetails.followupdate || "",
-      notes: appDetails.additionalnotes || "",
-      createdAt: getF(row, ["Created At", "Timestamp"]) || appDetails.timestamp || new Date().toISOString(),
-      updatedAt: getF(row, ["Updated At"]) || new Date().toISOString(),
-    });
+      fmsId: f.fmsId || `FMS-${id}`,
+      fullName: f.fullName || app.fullname || "Unnamed Candidate",
+      phone: f.phone || app.whatsapp || app.phone || "",
+      whatsapp: f.phone || app.whatsapp || "",
+      email: f.email || app.email || "",
+      gender: f.gender || app.gender || "",
+      city: f.city || app.city || "",
+      area: f.area || app.area || "",
+      dob: f.dob || app.dateofbirth || "",
+      source: f.source || app.source || "",
+      position: app.positionappliedfor || f.position || "",
+      experience: app.experience || "",
+      education: app.education || "",
+      currentCompany: app.currentcompany || "",
+      currentDesignation: app.currentdesignation || "",
+      currentSalary: app.currentsalary || "",
+      expectedSalary: f.expectedSalary || app.expectedsalary || "",
+      noticePeriod: f.noticePeriod || app.noticeperiod || "",
+      skills: app.skills || "",
+      resumeLink: app.resumelink || "",
+      resumeFile: app.resumefile || "",
+      currentStage: f.currentStage || "Application Received",
+      status: f.status || "Active",
+      interviewStatus: f.interviewStatus || "Active",
+      archived: !!f.archived,
+      stageData: f.stageData || {},
+      stages: f.stages || {},
+      personalDetails: {
+        ...pd,
+        dateOfBirth: pd.dateOfBirth || app.dateofbirth,
+        gender: pd.gender || app.gender,
+        personalEmail: pd.personalEmail || app.email,
+      },
+      brand: f.brand || app.brand || "ahl",
+      assignedTo: app.assignedto || "",
+      followUpDate: app.followupdate || "",
+      notes: f.notes || app.additionalnotes || "",
+      createdAt: f.createdAt || app.timestamp || new Date().toISOString(),
+      updatedAt: f.updatedAt || new Date().toISOString(),
+    } as FmsCandidate);
   }
 
   return candidates;
@@ -274,115 +218,8 @@ export async function getFmsCandidateById(id: string): Promise<FmsCandidate | nu
   return all.find((c) => c.id === id || c.fmsId === id) || null;
 }
 
-export function candidateToFmsRow(cand: Partial<FmsCandidate>): unknown[] {
-  const now = new Date().toISOString();
-  const row = new Array(89).fill("");
-
-  row[0] = cand.id || "";
-  row[1] = cand.fmsId || `FMS-${cand.id || ""}`;
-  row[2] = cand.fullName || "";
-  row[3] = cand.phone || "";
-  row[4] = cand.whatsapp || cand.phone || "";
-  row[5] = cand.email || cand.personalDetails?.personalEmail || "";
-  row[6] = cand.position || "";
-  row[7] = cand.requisitionId || "";
-  row[8] = cand.brand || "ahl";
-  row[9] = cand.experience || "";
-  row[10] = cand.source || "";
-  row[11] = cand.city || "";
-  row[12] = cand.area || "";
-  row[13] = cand.currentCompany || "";
-  row[14] = cand.currentDesignation || "";
-  row[15] = cand.currentSalary || "";
-  row[16] = cand.expectedSalary || "";
-  row[17] = cand.noticePeriod || "";
-  row[18] = cand.skills || "";
-  row[19] = cand.resumeLink || "";
-  row[20] = cand.status || "Active";
-  row[21] = cand.currentStage || "Application Received";
-  row[22] = cand.notes || "";
-
-  // Stage 1: Application Received
-  row[23] = cand.stages?.ar?.plannedDate || "";
-  row[24] = cand.stages?.ar?.actualDate || "";
-  row[25] = cand.stages?.ar?.status || "Pending";
-  row[26] = cand.stages?.ar?.delayDays || 0;
-  row[27] = cand.stageData?.ar?.notes || "";
-  row[28] = JSON.stringify(cand.stages?.ar?.checklistState || cand.stageData?.ar?.checklist || {});
-
-  // Stage 2: Pre-Screening / Interview Updates
-  row[29] = cand.stages?.ps?.plannedDate || "";
-  row[30] = cand.stages?.ps?.actualDate || "";
-  row[31] = cand.stages?.ps?.status || "Pending";
-  row[32] = cand.stages?.ps?.delayDays || 0;
-  row[33] = cand.stageData?.ps?.screeningResult || "";
-  row[34] = cand.stageData?.ps?.screeningNotes || "";
-  row[35] = cand.rescheduledDate || "";
-  row[36] = cand.interviewStatus || "Active";
-  row[37] = JSON.stringify(cand.stages?.ps?.checklistState || cand.stageData?.ps?.checklist || {});
-
-  // Stage 3: Confirmation Call
-  row[38] = cand.stages?.cc?.plannedDate || "";
-  row[39] = cand.stages?.cc?.actualDate || "";
-  row[40] = cand.stages?.cc?.status || "Pending";
-  row[41] = cand.stages?.cc?.delayDays || 0;
-  row[42] = cand.stageData?.cc?.notes || "";
-  row[43] = JSON.stringify(cand.stages?.cc?.checklistState || cand.stageData?.cc?.checklist || {});
-
-  // Stage 4: Joining
-  row[44] = cand.stages?.jo?.plannedDate || "";
-  row[45] = cand.stages?.jo?.actualDate || "";
-  row[46] = cand.stages?.jo?.status || "Pending";
-  row[47] = cand.stages?.jo?.delayDays || 0;
-  row[48] = cand.stageData?.jo?.offeredSalary || "";
-  row[49] = cand.stageData?.jo?.confirmedJoiningDate || "";
-  row[50] = cand.stageData?.jo?.uniformSize || "";
-  row[51] = cand.stageData?.jo?.notes || "";
-  row[52] = JSON.stringify(cand.stages?.jo?.checklistState || cand.stageData?.jo?.checklist || {});
-
-  // Stage 5: Documentation & KYC
-  row[53] = cand.stages?.doc?.plannedDate || "";
-  row[54] = cand.stages?.doc?.actualDate || "";
-  row[55] = cand.stages?.doc?.status || "Pending";
-  row[56] = cand.stages?.doc?.delayDays || 0;
-  row[57] = cand.personalDetails?.dateOfBirth || cand.dob || "";
-  row[58] = cand.personalDetails?.gender || cand.gender || "";
-  row[59] = cand.personalDetails?.bloodGroup || "";
-  row[60] = cand.personalDetails?.aadharCardNumber || "";
-  row[61] = cand.personalDetails?.panNumber || "";
-  row[62] = cand.personalDetails?.permanentAddress || "";
-  row[63] = cand.personalDetails?.currentAddress || "";
-  row[64] = cand.personalDetails?.fatherName || "";
-  row[65] = cand.personalDetails?.motherName || "";
-  row[66] = cand.personalDetails?.emergencyContactName || "";
-  row[67] = cand.personalDetails?.relationship || "";
-  row[68] = cand.personalDetails?.emergencyContactNumber || "";
-  row[69] = cand.personalDetails?.numberOfSiblings || "";
-  row[70] = cand.personalDetails?.bankName || "";
-  row[71] = cand.personalDetails?.branch || "";
-  row[72] = cand.personalDetails?.accountNumber || "";
-  row[73] = cand.personalDetails?.ifscCode || "";
-  row[74] = cand.personalDetails?.primaryHobbies || "";
-  row[75] = cand.personalDetails?.dietaryPreference || "";
-  row[76] = cand.stageData?.doc?.notes || "";
-  row[77] = JSON.stringify(cand.stages?.doc?.checklistState || cand.stageData?.doc?.checklist || {});
-
-  // Stage 6: Onboarding
-  row[78] = cand.stages?.ob?.plannedDate || "";
-  row[79] = cand.stages?.ob?.actualDate || "";
-  row[80] = cand.stages?.ob?.status || "Pending";
-  row[81] = cand.stages?.ob?.delayDays || 0;
-  row[82] = cand.stageData?.ob?.assignedEmployeeId || "";
-  row[83] = cand.stageData?.ob?.mentorName || "";
-  row[84] = cand.stageData?.ob?.notes || "";
-  row[85] = JSON.stringify(cand.stages?.ob?.checklistState || cand.stageData?.ob?.checklist || {});
-
-  // JSON and metadata
-  row[86] = JSON.stringify(cand.stageData || {});
-  row[87] = cand.createdAt || now;
-  row[88] = cand.updatedAt || now;
-
-  return row;
+export function candidateToFmsRow(cand: Partial<FmsCandidate>, original?: Partial<FmsCandidate>): unknown[] {
+  return candidateToRow(cand, original);
 }
 
 export async function createFmsCandidate(
@@ -407,9 +244,7 @@ export async function createFmsCandidate(
     interviewStatus: "Active",
     archived: false,
     brand: "ahl",
-    stageData: {
-      ar: { plannedDate: now.slice(0, 10), actualDate: "", checklist: {} },
-    },
+    stageData: {},
     stages: {
       ar: { plannedDate: now.slice(0, 10), status: "Pending", checklistState: {}, fieldValues: {} },
     },
@@ -426,7 +261,7 @@ export async function createFmsCandidate(
   };
 
   const row = candidateToFmsRow(cand);
-  await appendFmsValues("Candidate FMS!A:CK", [row]);
+  await appendFmsValues(`${CANDIDATE_FMS_TAB}!A:${CANDIDATE_FMS_LAST_COLUMN}`, [row]);
   return { success: true, id, fmsId };
 }
 
@@ -434,7 +269,7 @@ export async function updateFmsCandidate(
   id: string,
   updates: Partial<FmsCandidate>
 ): Promise<{ success: boolean }> {
-  const rows = await getFmsValues("Candidate FMS!A:B");
+  const rows = await getFmsValues(`${CANDIDATE_FMS_TAB}!A:B`);
   if (!rows || rows.length <= 1) return { success: false };
 
   let targetRowIndex = -1;
@@ -461,14 +296,17 @@ export async function updateFmsCandidate(
     updatedAt: new Date().toISOString(),
   };
 
-  const updatedRow = candidateToFmsRow(merged);
-  await updateFmsValues(`Candidate FMS!A${targetRowIndex}:CK${targetRowIndex}`, [updatedRow]);
+  const updatedRow = candidateToFmsRow(merged, current);
+  await updateFmsValues(
+    `${CANDIDATE_FMS_TAB}!A${targetRowIndex}:${CANDIDATE_FMS_LAST_COLUMN}${targetRowIndex}`,
+    [updatedRow]
+  );
   return { success: true };
 }
 
 export async function deleteFmsCandidate(id: string): Promise<{ success: boolean }> {
   const ssId = getFmsDatabaseId();
-  const rows = await getFmsValues("Candidate FMS!A:B");
+  const rows = await getFmsValues(`${CANDIDATE_FMS_TAB}!A:B`);
   if (!rows || rows.length <= 1) return { success: false };
 
   let targetIndex0Based = -1;
