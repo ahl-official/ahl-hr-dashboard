@@ -224,3 +224,29 @@ test("Stage 2 Interview Updates: updates interview status, reschedule date, and 
   assert.equal(directlyHired?.interviewStatus, "Passed");
 });
 
+
+test("advanceCandidateStageStore accepts back-dated planned/actual dates for previous records", async () => {
+  const candidate = await addFmsCandidateStore({
+    fullName: "Back Dated Record",
+    phone: "9819005566",
+    requisitionId: "REQ-2026-006",
+    brand: "ahl",
+  });
+
+  const advanced = await advanceCandidateStageStore(candidate.id, {}, undefined, {
+    plannedDate: "2026-01-10",
+    actualDate: "2026-01-13",
+  });
+
+  assert.equal(advanced?.stages.ar.plannedDate, "2026-01-10");
+  assert.equal(advanced?.stages.ar.actualDate, "2026-01-13");
+  assert.equal(advanced?.stages.ar.delayDays, 3);
+  // Next stage SLA counts from the actual date, not today
+  assert.equal(advanced?.stages.ps.plannedDate, getNextStagePlannedDate(new Date("2026-01-13"), FMS_CANDIDATE_STAGES[1].weeks));
+});
+
+test("advanceCandidateStageStore ignores a future actual date", async () => {
+  const candidate = await addFmsCandidateStore({ fullName: "Future Date", phone: "9819007788", requisitionId: "REQ-2026-006" });
+  const advanced = await advanceCandidateStageStore(candidate.id, {}, undefined, { actualDate: "2999-01-01" });
+  assert.equal(advanced?.stages.ar.actualDate, new Date().toISOString().slice(0, 10));
+});

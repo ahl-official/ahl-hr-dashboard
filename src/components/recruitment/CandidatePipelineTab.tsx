@@ -69,6 +69,9 @@ export default function CandidatePipelineTab({
   const [advancing, setAdvancing] = useState(false);
   const [advanceError, setAdvanceError] = useState("");
   const [customTargetDate, setCustomTargetDate] = useState("");
+  // Current stage dates — editable so older records can be entered with their real dates.
+  const [stagePlannedDate, setStagePlannedDate] = useState("");
+  const [stageActualDate, setStageActualDate] = useState("");
   const [fieldFormValues, setFieldFormValues] = useState<Record<string, any>>({});
   const [reverting, setReverting] = useState(false);
   const [revertError, setRevertError] = useState("");
@@ -189,9 +192,12 @@ export default function CandidatePipelineTab({
     const meta = getStageMeta(cand.currentStage);
     const curIdx = FMS_CANDIDATE_STAGES.findIndex((s) => s.id === meta.id);
     const nextMeta = FMS_CANDIDATE_STAGES[curIdx + 1];
+    const todayIso = new Date().toISOString().slice(0, 10);
 
+    setStagePlannedDate(cand.stages?.[meta.id]?.plannedDate || cand.stageData?.[meta.id]?.plannedDate || "");
+    setStageActualDate(todayIso);
     if (nextMeta) {
-      setCustomTargetDate(getNextStagePlannedDate(new Date(), nextMeta.weeks));
+      setCustomTargetDate(getNextStagePlannedDate(new Date(todayIso), nextMeta.weeks));
     } else {
       setCustomTargetDate("");
     }
@@ -312,6 +318,8 @@ export default function CandidatePipelineTab({
           id: selectedCand.id,
           fieldUpdates: fieldFormValues,
           customNextPlannedDate: customTargetDate || undefined,
+          actualDate: stageActualDate || undefined,
+          plannedDate: stagePlannedDate || undefined,
         }),
       });
 
@@ -1701,6 +1709,64 @@ export default function CandidatePipelineTab({
                         </div>
                       ))}
                     </div>
+                  </div>
+                );
+              })()}
+
+              {/* Current Stage Planned / Actual Dates (back-dating for previous records) */}
+              {(() => {
+                const meta = getStageMeta(selectedCand.currentStage);
+                if (meta.id === "ob") return null;
+                const curIdx = FMS_CANDIDATE_STAGES.findIndex((s) => s.id === meta.id);
+                const nextMeta = FMS_CANDIDATE_STAGES[curIdx + 1];
+                const todayIso = new Date().toISOString().slice(0, 10);
+                const previewDelay = stagePlannedDate && stageActualDate ? calculateFmsDelay(stagePlannedDate, stageActualDate) : 0;
+
+                return (
+                  <div className="space-y-2.5 p-3.5 bg-white rounded-xl border border-borderline">
+                    <label className="font-bold text-navy text-xs flex items-center justify-between">
+                      <span>{meta.name} Dates</span>
+                      <span className="text-[10px] text-muted font-normal">Change these when entering a previous record</span>
+                    </label>
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <div className="space-y-1">
+                        <span className="text-[11px] font-semibold text-slate-600">Planned Date</span>
+                        <input
+                          type="date"
+                          value={stagePlannedDate}
+                          onChange={(e) => setStagePlannedDate(e.target.value)}
+                          className="w-full px-3 py-1.5 bg-white border border-borderline rounded-lg text-navy text-xs"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-[11px] font-semibold text-slate-600">Actual Date (Completed On)</span>
+                        <input
+                          type="date"
+                          value={stageActualDate}
+                          max={todayIso}
+                          onChange={(e) => {
+                            setStageActualDate(e.target.value);
+                            if (nextMeta && e.target.value) {
+                              setCustomTargetDate(getNextStagePlannedDate(new Date(e.target.value), nextMeta.weeks));
+                            }
+                          }}
+                          className="w-full px-3 py-1.5 bg-white border border-borderline rounded-lg text-navy text-xs"
+                        />
+                      </div>
+                    </div>
+                    {stagePlannedDate && stageActualDate && (
+                      <div
+                        className={`text-[11px] font-bold px-2.5 py-1.5 rounded-lg border ${
+                          previewDelay > 0
+                            ? "bg-yellow-100 text-yellow-900 border-yellow-300"
+                            : "bg-emerald-50 text-emerald-800 border-emerald-200"
+                        }`}
+                      >
+                        {previewDelay > 0
+                          ? `Delay: ${previewDelay} ${previewDelay === 1 ? "day" : "days"} late (planned ${stagePlannedDate}, actual ${stageActualDate})`
+                          : "On time — completed on or before the planned date"}
+                      </div>
+                    )}
                   </div>
                 );
               })()}

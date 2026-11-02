@@ -88,3 +88,16 @@ test("getFmsCandidatesStats calculates summary metrics", async () => {
   assert.ok(stats.linkedToReqs >= 10, "Linked requisitions should be >= 10");
   assert.ok(typeof stats.byStage["Application Received"] === "number");
 });
+
+test("Candidate FMS delay cell is readable text and parses back to days", async () => {
+  const { formatDelayText, parseDelayDays } = await import("../src/lib/candidate-fms-schema.ts");
+  assert.equal(formatDelayText("2026-01-10", "2026-01-13", "2026-02-01"), "3 days late");
+  assert.equal(formatDelayText("2026-01-10", "2026-01-11", "2026-02-01"), "1 day late");
+  assert.equal(formatDelayText("2026-01-10", "2026-01-09", "2026-02-01"), "On time");
+  assert.equal(formatDelayText("2026-01-10", "", "2026-01-15"), "5 days overdue");
+  assert.equal(formatDelayText("2026-01-10", "", "2026-01-05"), "On track");
+  assert.equal(formatDelayText("", "", "2026-01-05"), "");
+  assert.equal(parseDelayDays("3 days late"), 3);
+  assert.equal(parseDelayDays(4), 4);
+  assert.equal(parseDelayDays("On time"), 0);
+});

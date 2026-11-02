@@ -1,9 +1,10 @@
 // Formats the "Candidate FMS" tab of the HR System FMS Database from the shared schema:
 // bold header row, one colour per stage block (header + light column tint), block dividers,
-// date formats, and dropdowns that match the web app's select options.
+// date formats, dropdowns that match the web app's select options, and a yellow box on every
+// Time Delay cell where the actual date missed the planned date.
 // Usage: node --experimental-strip-types scripts/format-candidate-fms.mjs
 import { sheetsApi } from "./_sheets-auth.mjs";
-import { CANDIDATE_FMS_TAB, CANDIDATE_FMS_COLUMNS } from "../src/lib/candidate-fms-schema.ts";
+import { CANDIDATE_FMS_TAB, CANDIDATE_FMS_COLUMNS, columnLetter } from "../src/lib/candidate-fms-schema.ts";
 import { FMS_CANDIDATE_STAGES } from "../src/types/fms.ts";
 
 // Same hues as the app's stage colours, darkened for white header text.
@@ -18,6 +19,7 @@ const PALETTE = {
   system: { name: "System", header: "#6B7280", tint: "#F3F4F6" },
 };
 const STAGE_STATUSES = ["Pending", "In Progress", "Completed", "Overdue", "Dropped"];
+const DELAY_FILL = { bg: "#FDE047", text: "#713F12" };
 
 const rgb = (hex) => ({
   red: parseInt(hex.slice(1, 3), 16) / 255,
@@ -27,7 +29,7 @@ const rgb = (hex) => ({
 const groupOf = (col) => (col.kind === "profile" ? col.group : col.kind === "json" ? "system" : col.stage);
 
 export async function formatCandidateFms() {
-  const meta = await sheetsApi("?fields=sheets(properties(sheetId,title,gridProperties))");
+  const meta = await sheetsApi("?fields=sheets(properties(sheetId,title,gridProperties),conditionalFormats)");
   const sheet = meta.sheets.find((s) => s.properties.title === CANDIDATE_FMS_TAB);
   if (!sheet) throw new Error(`Tab "${CANDIDATE_FMS_TAB}" not found`);
   const { sheetId, gridProperties } = sheet.properties;
@@ -44,6 +46,8 @@ export async function formatCandidateFms() {
     // Reset previous formatting, borders and dropdowns so re-runs are clean.
     { repeatCell: { range: { sheetId }, cell: { userEnteredFormat: {} }, fields: "userEnteredFormat" } },
     { setDataValidation: { range: { sheetId, startRowIndex: 1 } } },
+    // Highest index first so the remaining indexes stay valid while deleting.
+    ...(sheet.conditionalFormats || []).map((_, i, all) => ({ deleteConditionalFormatRule: { sheetId, index: all.length - 1 - i } })),
   ];
 
   // Contiguous runs of the same group.
@@ -97,6 +101,26 @@ export async function formatCandidateFms() {
           cell: { userEnteredFormat: { numberFormat: { type: "DATE", pattern: col.kind === "profile" ? "dd/mm/yyyy hh:mm" : "dd/mm/yyyy" } } },
           fields: "userEnteredFormat.numberFormat",
         },
+      });
+    }
+
+    if (col.kind === "stage" && col.part === "delayDays") {
+      // Delay cells read "3 days late" / "2 days overdue" (or a legacy number > 0).
+      const ref = `${columnLetter(i + 1)}2`;
+      requests.push({
+        addConditionalFormatRule: {
+          index: 0,
+          rule: {
+            ranges: [body(i, i + 1)],
+            booleanRule: {
+              condition: { type: "CUSTOM_FORMULA", values: [{ userEnteredValue: `=OR(REGEXMATCH(TO_TEXT(${ref}),"late|overdue"),AND(ISNUMBER(${ref}),${ref}>0))` }] },
+              format: { backgroundColor: rgb(DELAY_FILL.bg), textFormat: { bold: true, foregroundColor: rgb(DELAY_FILL.text) } },
+            },
+          },
+        },
+      });
+      requests.push({
+        repeatCell: { range: body(i, i + 1), cell: { userEnteredFormat: { horizontalAlignment: "CENTER" } }, fields: "userEnteredFormat.horizontalAlignment" },
       });
     }
 

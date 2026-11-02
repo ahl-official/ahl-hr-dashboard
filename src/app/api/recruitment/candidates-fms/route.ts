@@ -113,7 +113,8 @@ export async function POST(req: Request) {
       const advanced = await advanceCandidateStageStore(
         body.id,
         body.fieldUpdates,
-        body.customNextPlannedDate
+        body.customNextPlannedDate,
+        { actualDate: body.actualDate, plannedDate: body.plannedDate }
       );
       if (!advanced) {
         return NextResponse.json(

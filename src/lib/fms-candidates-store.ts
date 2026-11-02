@@ -752,18 +752,24 @@ export async function getFmsCandidatesStats() {
 
 /**
  * Advances a candidate to the next FMS lifecycle stage.
- * Stamping current stage actualDate = today and calculating next stage plannedDate using SLA.
+ * Stamps the current stage actualDate (today, or a back-dated `dates.actualDate` when entering
+ * old records), optionally corrects its plannedDate, and sets the next stage plannedDate from SLA.
  */
 export async function advanceCandidateStageStore(
   id: string,
   fieldUpdates?: Record<string, any>,
-  customNextPlannedDate?: string
+  customNextPlannedDate?: string,
+  dates: { actualDate?: string; plannedDate?: string } = {}
 ): Promise<FmsCandidate | null> {
   const current = await getFmsCandidatesStore();
   const cand = current.find((c) => c.id === id || c.fmsId === id);
   if (!cand) return null;
 
-  const today = new Date().toISOString().slice(0, 10);
+  const isIsoDate = (v?: string) => Boolean(v && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(v)));
+  const realToday = new Date().toISOString().slice(0, 10);
+  // Completion date for the current stage; future dates are not allowed.
+  const today = isIsoDate(dates.actualDate) && dates.actualDate! <= realToday ? dates.actualDate! : realToday;
+  const plannedOverride = isIsoDate(dates.plannedDate) ? dates.plannedDate : undefined;
   const curIdx = FMS_CANDIDATE_STAGES.findIndex(
     (s) =>
       s.name.toLowerCase() === cand.currentStage.toLowerCase() ||
@@ -791,6 +797,12 @@ export async function advanceCandidateStageStore(
   cand.stageData[curStageId].actualDate = today;
   cand.stageData[curStageId].status = "Completed";
 
+  if (plannedOverride) {
+    cand.stages[curStageId].plannedDate = plannedOverride;
+    cand.stageData[curStageId].plannedDate = plannedOverride;
+  }
+  cand.stages[curStageId].delayDays = calculateFmsDelay(cand.stages[curStageId].plannedDate, today);
+
   if (fieldUpdates) {
     if (!cand.stages[curStageId].fieldValues) cand.stages[curStageId].fieldValues = {};
     Object.assign(cand.stages[curStageId].fieldValues!, fieldUpdates);
@@ -809,7 +821,7 @@ export async function advanceCandidateStageStore(
     cand.status = "Hired";
     cand.interviewStatus = "Passed";
     cand.currentStage = "Onboarding";
-    cand.updatedAt = today;
+    cand.updatedAt = realToday;
 
     if (cand.requisitionId) {
       try {
@@ -827,7 +839,7 @@ export async function advanceCandidateStageStore(
     const nextStageMeta = FMS_CANDIDATE_STAGES[curIdx + 1];
     const nextStageId = nextStageMeta.id;
     const nextPlannedDate =
-      customNextPlannedDate || getNextStagePlannedDate(new Date(), nextStageMeta.weeks);
+      customNextPlannedDate || getNextStagePlannedDate(new Date(today), nextStageMeta.weeks);
 
     cand.currentStage = nextStageMeta.name;
     if (!cand.stages[nextStageId]) {
@@ -845,7 +857,7 @@ export async function advanceCandidateStageStore(
     if (!cand.stageData[nextStageId]) cand.stageData[nextStageId] = {};
     cand.stageData[nextStageId].plannedDate = nextPlannedDate;
     cand.stageData[nextStageId].status = "Pending";
-    cand.updatedAt = today;
+    cand.updatedAt = realToday;
   }
 
   cachedCandidates = current;

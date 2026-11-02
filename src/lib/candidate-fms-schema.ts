@@ -1,6 +1,8 @@
 // Single source of truth for the "Candidate FMS" tab layout.
 // Stage blocks follow the Recruitment-to-Exit FMS pattern:
 //   <Stage> Planned | <Stage> Actual | <Stage> Status | <stage fields…> | <Stage> Time Delay (Days)
+// The delay cell is human-readable ("3 days late", "2 days overdue", "On time") and is
+// highlighted yellow by scripts/format-candidate-fms.mjs whenever it is not on time.
 // Stage fields are derived from FMS_CANDIDATE_STAGES, so the sheet always matches the web app.
 // Kept free of server-only imports so scripts/migrate-candidate-fms.mjs can reuse it.
 
@@ -158,6 +160,20 @@ function daysBetween(fromIso: string, toIso: string): number {
   return Math.max(0, Math.round((to - from) / 86400000));
 }
 
+/** Delay text for the sheet: late when completed after plan, overdue when still open past plan. */
+export function formatDelayText(planned: string, actual: string, today: string): string {
+  if (!planned) return "";
+  const days = daysBetween(planned, actual || today);
+  if (days <= 0) return actual ? "On time" : "On track";
+  return `${days} ${days === 1 ? "day" : "days"} ${actual ? "late" : "overdue"}`;
+}
+
+/** Reads a delay cell — accepts "3 days late" as well as legacy plain numbers. */
+export function parseDelayDays(value: unknown): number {
+  const n = parseInt(clean(value), 10);
+  return Number.isNaN(n) ? 0 : Math.max(0, n);
+}
+
 function emptyStage(): FmsCandidateStageTracking {
   return { status: "Pending", checklistState: {}, fieldValues: {} };
 }
@@ -218,7 +234,7 @@ export function rowToCandidateFields(row: unknown[], index: Map<CandidateFmsColu
       else if (v) cand[col.prop] = v;
     } else if (col.kind === "stage") {
       const st = cand.stages[col.stage];
-      if (col.part === "delayDays") st.delayDays = Number(v) || 0;
+      if (col.part === "delayDays") st.delayDays = parseDelayDays(v);
       else if (col.part === "status") st.status = v || "Pending";
       else st[col.part] = v;
     } else if (col.kind === "field" && v) {
@@ -278,7 +294,7 @@ export function candidateToRow(cand: Partial<FmsCandidate>, original?: Partial<F
       if (col.part === "plannedDate") return planned;
       if (col.part === "actualDate") return actual;
       if (col.part === "status") return st?.status || data.status || "Pending";
-      return planned ? daysBetween(planned, actual || today) : "";
+      return formatDelayText(planned, actual, today);
     }
 
     if (col.kind === "field") {
