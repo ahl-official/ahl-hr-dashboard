@@ -34,11 +34,13 @@ import {
   Copy,
   Check,
   RotateCcw,
+  Download,
 } from "lucide-react";
 import type { FmsCandidate, FmsRequisition, FmsStageMeta } from "@/types/fms";
 import { FMS_CANDIDATE_STAGES } from "@/types/fms";
 import { calculateFmsDelay, getNextStagePlannedDate, normalizeFmsPhone } from "@/lib/fms-rules";
 import Link from "next/navigation";
+import FmsReportModal from "./FmsReportModal";
 
 interface CandidatePipelineTabProps {
   initialRequisitionId?: string;
@@ -55,6 +57,7 @@ export default function CandidatePipelineTab({
   const [requisitions, setRequisitions] = useState<FmsRequisition[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Filters & Views
@@ -822,6 +825,15 @@ export default function CandidatePipelineTab({
             <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? "animate-spin text-primary" : ""}`} />
           </button>
 
+          {/* Download weekly / monthly HR report */}
+          <button
+            onClick={() => setShowReportModal(true)}
+            className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-canvas border border-borderline text-navy hover:bg-slate-100 transition-all cursor-pointer"
+          >
+            <Download className="w-3.5 h-3.5 text-primary" />
+            <span>Download Reports</span>
+          </button>
+
           {/* Intake New Candidate */}
           {onNavigateToApplications && (
             <button
@@ -837,6 +849,8 @@ export default function CandidatePipelineTab({
       {/* ────────────────────────────────────────────────────────── */}
       {/* LOADING & ERROR STATES */}
       {/* ────────────────────────────────────────────────────────── */}
+      {showReportModal && <FmsReportModal onClose={() => setShowReportModal(false)} />}
+
       {loading && (
         <div className="bg-surface rounded-xl p-12 border border-borderline shadow-card flex flex-col items-center justify-center text-center">
           <Loader2 className="w-8 h-8 text-primary animate-spin mb-3" />
