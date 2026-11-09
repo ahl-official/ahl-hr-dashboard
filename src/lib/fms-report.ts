@@ -8,7 +8,7 @@
 
 import type { FmsCandidate, FmsRequisition } from "../types/fms.ts";
 
-export type FmsReportKind = "weekly" | "monthly";
+export type FmsReportKind = "weekly" | "monthly" | "custom";
 
 export interface FmsReportPeriod {
   kind: FmsReportKind;
@@ -51,7 +51,7 @@ export function formatReportDate(isoDate: string): string {
 }
 
 /** Periods newest first. The first entry is the current, still-running week or month. */
-export function getFmsReportPeriods(kind: FmsReportKind, todayIso: string, count = 12): FmsReportPeriod[] {
+export function getFmsReportPeriods(kind: Exclude<FmsReportKind, "custom">, todayIso: string, count = 12): FmsReportPeriod[] {
   const today = new Date(`${todayIso}T00:00:00Z`);
   const periods: FmsReportPeriod[] = [];
 
@@ -70,6 +70,12 @@ export function getFmsReportPeriods(kind: FmsReportKind, todayIso: string, count
     }
   }
   return periods;
+}
+
+/** A From/To range picked on the calendar, or null while it is incomplete or reversed. */
+export function getCustomReportPeriod(start: string, end: string): FmsReportPeriod | null {
+  if (!start || !end || start > end) return null;
+  return { kind: "custom", start, end, label: `${formatReportDate(start)} - ${formatReportDate(end)}` };
 }
 
 /** "Rakesh sir" and "Rakesh" are the same person in the Recruiter Name column. */
@@ -178,6 +184,6 @@ export function reportTitle(report: FmsReport): string {
 
 export function reportFileName(report: FmsReport): string {
   const name = report.hrName ? `${report.hrName.replace(/\s+/g, "-")}-` : "";
-  const kind = report.period.kind === "monthly" ? "Monthly" : "Weekly";
-  return `${name}HR-${kind}-Report-${report.period.start}-to-${report.period.end}.pdf`;
+  const kind = { weekly: "Weekly-", monthly: "Monthly-", custom: "" }[report.period.kind];
+  return `${name}HR-${kind}Report-${report.period.start}-to-${report.period.end}.pdf`;
 }

@@ -5,6 +5,7 @@ import { AlertCircle, Download, Loader2, X } from "lucide-react";
 import type { FmsCandidate, FmsRequisition } from "@/types/fms";
 import {
   buildFmsReport,
+  getCustomReportPeriod,
   getFmsReportPeriods,
   listReportHrNames,
   reportFileName,
@@ -29,6 +30,8 @@ export default function FmsReportModal({ onClose }: { onClose: () => void }) {
   // Index 0 is the running week/month, so default to the last completed one.
   const [periodIndex, setPeriodIndex] = useState(1);
   const [hrName, setHrName] = useState("");
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -59,14 +62,30 @@ export default function FmsReportModal({ onClose }: { onClose: () => void }) {
     };
   }, []);
 
-  const periods = useMemo(() => getFmsReportPeriods(kind, localToday()), [kind]);
+  const today = localToday();
+  const periods = useMemo(() => (kind === "custom" ? [] : getFmsReportPeriods(kind, today)), [kind, today]);
+  const period = useMemo(
+    () => (kind === "custom" ? getCustomReportPeriod(customStart, customEnd) : periods[periodIndex]),
+    [kind, customStart, customEnd, periods, periodIndex]
+  );
   const hrNames = useMemo(() => listReportHrNames(requisitions), [requisitions]);
   const report = useMemo(
-    () => buildFmsReport(candidates, requisitions, periods[periodIndex], hrName),
-    [candidates, requisitions, periods, periodIndex, hrName]
+    () => (period ? buildFmsReport(candidates, requisitions, period, hrName) : null),
+    [candidates, requisitions, period, hrName]
   );
+  const reversedRange = kind === "custom" && Boolean(customStart && customEnd) && customStart > customEnd;
+
+  // Open the calendar when any part of the field is clicked, not only its icon.
+  const openCalendar = (e: React.MouseEvent<HTMLInputElement>) => {
+    try {
+      e.currentTarget.showPicker();
+    } catch {
+      // Browsers without showPicker still open it from the icon.
+    }
+  };
 
   const handleDownload = async () => {
+    if (!report) return;
     setDownloading(true);
     setError(null);
     try {
@@ -94,7 +113,7 @@ export default function FmsReportModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="flex gap-1 p-1 rounded-lg bg-canvas border border-borderline">
-          {(["weekly", "monthly"] as const).map((option) => (
+          {(["weekly", "monthly", "custom"] as const).map((option) => (
             <button
               key={option}
               onClick={() => {
@@ -105,21 +124,49 @@ export default function FmsReportModal({ onClose }: { onClose: () => void }) {
                 kind === option ? "bg-primary text-white" : "text-muted hover:text-navy"
               }`}
             >
-              {option}
+              {option === "custom" ? "Custom Dates" : option}
             </button>
           ))}
         </div>
 
-        <label className="block space-y-1">
-          <span className="font-semibold text-navy">{kind === "weekly" ? "Week" : "Month"}</span>
-          <select value={periodIndex} onChange={(e) => setPeriodIndex(Number(e.target.value))} className={selectClass}>
-            {periods.map((period, i) => (
-              <option key={period.start} value={i}>
-                {period.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        {kind === "custom" ? (
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block space-y-1">
+              <span className="font-semibold text-navy">From</span>
+              <input
+                type="date"
+                value={customStart}
+                max={customEnd || today}
+                onChange={(e) => setCustomStart(e.target.value)}
+                onClick={openCalendar}
+                className={selectClass}
+              />
+            </label>
+            <label className="block space-y-1">
+              <span className="font-semibold text-navy">To</span>
+              <input
+                type="date"
+                value={customEnd}
+                min={customStart || undefined}
+                max={today}
+                onChange={(e) => setCustomEnd(e.target.value)}
+                onClick={openCalendar}
+                className={selectClass}
+              />
+            </label>
+          </div>
+        ) : (
+          <label className="block space-y-1">
+            <span className="font-semibold text-navy">{kind === "weekly" ? "Week" : "Month"}</span>
+            <select value={periodIndex} onChange={(e) => setPeriodIndex(Number(e.target.value))} className={selectClass}>
+              {periods.map((option, i) => (
+                <option key={option.start} value={i}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
 
         <label className="block space-y-1">
           <span className="font-semibold text-navy">HR</span>
@@ -139,7 +186,8 @@ export default function FmsReportModal({ onClose }: { onClose: () => void }) {
             <span>Loading latest FMS data...</span>
           </div>
         ) : (
-          !error && (
+          !error &&
+          report && (
             <div className="grid grid-cols-3 gap-2 text-center">
               {[
                 ["Shortlisted", report.totals.shortlisted],
@@ -155,6 +203,13 @@ export default function FmsReportModal({ onClose }: { onClose: () => void }) {
           )
         )}
 
+        {reversedRange && (
+          <div className="flex items-center gap-2 p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-800">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>The From date must be on or before the To date.</span>
+          </div>
+        )}
+
         {error && (
           <div className="flex items-center gap-2 p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-800">
             <AlertCircle className="w-4 h-4 shrink-0" />
@@ -164,7 +219,7 @@ export default function FmsReportModal({ onClose }: { onClose: () => void }) {
 
         <button
           onClick={handleDownload}
-          disabled={loading || downloading || (Boolean(error) && candidates.length === 0)}
+          disabled={!report || loading || downloading || (Boolean(error) && candidates.length === 0)}
           className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-primary text-white font-semibold hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
         >
           {downloading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}

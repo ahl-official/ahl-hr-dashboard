@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   buildFmsReport,
   formatReportPosition,
+  getCustomReportPeriod,
   getFmsReportPeriods,
   listReportHrNames,
   normalizeHrName,
@@ -178,6 +179,27 @@ test("HR filter scopes everything by requisition recruiter", () => {
   const all = buildFmsReport(candidates, requisitions, WEEK);
   assert.equal(all.totals.shortlisted, 3);
   assert.equal(all.totals.required, 7);
+});
+
+test("custom date ranges include both ends and reject incomplete or reversed input", () => {
+  assert.equal(getCustomReportPeriod("", "2026-10-25"), null);
+  assert.equal(getCustomReportPeriod("2026-10-19", ""), null);
+  assert.equal(getCustomReportPeriod("2026-10-25", "2026-10-19"), null);
+
+  const period = getCustomReportPeriod("2026-10-20", "2026-10-20");
+  assert.ok(period);
+  const report = buildFmsReport(
+    [
+      cand({ id: "A", shortlisted: "2026-10-20", joined: "2026-10-20" }),
+      cand({ id: "B", shortlisted: "2026-10-19", joined: "2026-10-21" }),
+    ],
+    [req({})],
+    period
+  );
+  assert.equal(report.totals.shortlisted, 1);
+  assert.equal(report.totals.joined, 1);
+  assert.equal(reportTitle(report), "HR REPORT (20/10/2026 - 20/10/2026)");
+  assert.equal(reportFileName(report), "HR-Report-2026-10-20-to-2026-10-20.pdf");
 });
 
 test("HR names normalise honorifics", () => {
