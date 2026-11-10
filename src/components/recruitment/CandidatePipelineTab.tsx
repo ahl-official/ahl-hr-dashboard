@@ -393,20 +393,38 @@ export default function CandidatePipelineTab({
 
   // Helper to check if a candidate is before interview (Stage 1 / Application Received, or no interview scheduled/held)
   const isCandidateBeforeInterview = (cand?: FmsCandidate | null): boolean => {
-    if (!cand) return false;
-    const stage = (cand.currentStage || "").toLowerCase();
+    if (!cand) return true;
+    const meta = getStageMeta(cand.currentStage || "");
     // Stage 1: Application Received is strictly before interview
-    if (stage === "application received" || stage === "ar") return true;
+    if (meta.id === "ar") return true;
+
+    const raw = (cand.currentStage || "").trim().toLowerCase();
+    if (!raw || raw === "ar" || raw === "application received" || raw.includes("application") || raw === "stage 1") {
+      return true;
+    }
 
     // Check if any interview has been conducted or scheduled
     const hasInterviews = Array.isArray(cand.interviews) && cand.interviews.length > 0;
-    const interviewOutcomeSet = cand.interviewStatus === "Passed" || cand.interviewStatus === "Failed" || cand.interviewStatus === "Completed";
-    const intUpdateStatus = cand.interviewUpdateStatus;
-    const hasInterviewActivity = hasInterviews || interviewOutcomeSet || intUpdateStatus === "Hired" || intUpdateStatus === "Not Hired" || intUpdateStatus === "Didn't Come for Interview";
+    const outcomeSet =
+      cand.interviewStatus === "Passed" ||
+      cand.interviewStatus === "Failed" ||
+      cand.interviewStatus === "Completed";
+    const updateStatus = (cand.interviewUpdateStatus || "").trim();
+    const hasInterviewActivity =
+      outcomeSet ||
+      updateStatus === "Hired" ||
+      updateStatus === "Not Hired" ||
+      updateStatus === "Didn't Come for Interview";
 
-    if ((stage === "interview updates" || stage === "ps") && !hasInterviewActivity) {
+    // Stage 2 (Interview Updates) without interview completion/decision is before interview
+    if ((meta.id === "ps" || raw === "ps" || raw.includes("interview updates")) && !hasInterviewActivity) {
       return true;
     }
+
+    if (!hasInterviewActivity && !hasInterviews) {
+      return true;
+    }
+
     return false;
   };
 
@@ -416,7 +434,8 @@ export default function CandidatePipelineTab({
     if (!target) return;
     setDropping(true);
 
-    const beforeInterview = isCandidateBeforeInterview(target);
+    const meta = getStageMeta(target.currentStage || "");
+    const beforeInterview = meta.id === "ar" || isCandidateBeforeInterview(target);
     const reasonToSend = beforeInterview ? "" : dropReason;
 
     try {
@@ -1856,7 +1875,9 @@ export default function CandidatePipelineTab({
                   <button
                     type="button"
                     onClick={() => {
-                      if (isCandidateBeforeInterview(selectedCand)) {
+                      const meta = getStageMeta(selectedCand.currentStage || "");
+                      const isBefore = meta.id === "ar" || isCandidateBeforeInterview(selectedCand);
+                      if (isBefore) {
                         handleDropCandidate(selectedCand);
                       } else {
                         setIsDropModalOpen(true);
@@ -1965,7 +1986,7 @@ export default function CandidatePipelineTab({
               </div>
             </div>
 
-            {!isCandidateBeforeInterview(selectedCand) ? (
+            {!isCandidateBeforeInterview(selectedCand) && getStageMeta(selectedCand?.currentStage || "").id !== "ar" ? (
               <div className="space-y-1.5">
                 <label className="font-semibold text-navy">Reason for Dropping</label>
                 <select
