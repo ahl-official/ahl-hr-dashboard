@@ -218,7 +218,7 @@ export default function CandidatePipelineTab({
         updates.status = "Dropped";
         updates.interviewStatus = "Dropped";
         updates.archived = true;
-        updates.archiveReason = "Dropped at Application Received stage";
+        updates.archiveReason = "";
       } else if (newStatus === "Interview Scheduled") {
         updates.interviewStatus = "Scheduled";
       }
@@ -391,10 +391,33 @@ export default function CandidatePipelineTab({
     }
   };
 
-  // Drop Candidate
-  const handleDropCandidate = async () => {
-    if (!selectedCand) return;
+  // Helper to check if a candidate is before interview (Stage 1 / Application Received, or no interview scheduled/held)
+  const isCandidateBeforeInterview = (cand?: FmsCandidate | null): boolean => {
+    if (!cand) return false;
+    const stage = (cand.currentStage || "").toLowerCase();
+    // Stage 1: Application Received is strictly before interview
+    if (stage === "application received" || stage === "ar") return true;
+
+    // Check if any interview has been conducted or scheduled
+    const hasInterviews = Array.isArray(cand.interviews) && cand.interviews.length > 0;
+    const interviewOutcomeSet = cand.interviewStatus === "Passed" || cand.interviewStatus === "Failed" || cand.interviewStatus === "Completed";
+    const intUpdateStatus = cand.interviewUpdateStatus;
+    const hasInterviewActivity = hasInterviews || interviewOutcomeSet || intUpdateStatus === "Hired" || intUpdateStatus === "Not Hired" || intUpdateStatus === "Didn't Come for Interview";
+
+    if ((stage === "interview updates" || stage === "ps") && !hasInterviewActivity) {
+      return true;
+    }
+    return false;
+  };
+
+  // Drop Candidate (Direct drop for before-interview candidates without asking for reason)
+  const handleDropCandidate = async (candidateToDrop?: FmsCandidate) => {
+    const target = candidateToDrop || selectedCand;
+    if (!target) return;
     setDropping(true);
+
+    const beforeInterview = isCandidateBeforeInterview(target);
+    const reasonToSend = beforeInterview ? "" : dropReason;
 
     try {
       const res = await fetch("/api/recruitment/candidates-fms", {
@@ -402,15 +425,17 @@ export default function CandidatePipelineTab({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "drop",
-          id: selectedCand.id,
-          reason: dropReason,
+          id: target.id,
+          reason: reasonToSend,
         }),
       });
 
       const json = await res.json();
       if (json.success && json.data) {
-        setCandidates((prev) => prev.map((c) => (c.id === selectedCand.id ? json.data : c)));
-        setSelectedCand(json.data);
+        setCandidates((prev) => prev.map((c) => (c.id === target.id ? json.data : c)));
+        if (selectedCand?.id === target.id) {
+          setSelectedCand(json.data);
+        }
         setIsDropModalOpen(false);
       }
     } catch (err) {
@@ -1830,11 +1855,18 @@ export default function CandidatePipelineTab({
                 {selectedCand.status.toLowerCase() !== "dropped" ? (
                   <button
                     type="button"
-                    onClick={() => setIsDropModalOpen(true)}
-                    className="px-3 py-2 rounded-lg bg-white border border-borderline text-rose-600 hover:bg-rose-50 text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+                    onClick={() => {
+                      if (isCandidateBeforeInterview(selectedCand)) {
+                        handleDropCandidate(selectedCand);
+                      } else {
+                        setIsDropModalOpen(true);
+                      }
+                    }}
+                    disabled={dropping}
+                    className="px-3 py-2 rounded-lg bg-white border border-borderline text-rose-600 hover:bg-rose-50 text-xs font-semibold flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                   >
                     <UserX className="w-3.5 h-3.5" />
-                    <span>Drop Candidate</span>
+                    <span>{dropping ? "Dropping..." : "Drop Candidate"}</span>
                   </button>
                 ) : (
                   <button
@@ -1933,22 +1965,28 @@ export default function CandidatePipelineTab({
               </div>
             </div>
 
-            <div className="space-y-1.5">
-              <label className="font-semibold text-navy">Reason for Dropping</label>
-              <select
-                value={dropReason}
-                onChange={(e) => setDropReason(e.target.value)}
-                className="w-full px-3 py-2 bg-canvas border border-borderline rounded-lg text-navy text-xs"
-              >
-                <option value="Salary expectations mismatch">Salary expectations mismatch</option>
-                <option value="Failed technical / practical evaluation">Failed technical / practical evaluation</option>
-                <option value="Candidate declined offer">Candidate declined offer</option>
-                <option value="Unreachable / No show for interview">Unreachable / No show for interview</option>
-                <option value="Location / Shift timing constraints">Location / Shift timing constraints</option>
-                <option value="Culture fit / behavioral concerns">Culture fit / behavioral concerns</option>
-                <option value="Found alternative candidate">Found alternative candidate</option>
-              </select>
-            </div>
+            {!isCandidateBeforeInterview(selectedCand) ? (
+              <div className="space-y-1.5">
+                <label className="font-semibold text-navy">Reason for Dropping</label>
+                <select
+                  value={dropReason}
+                  onChange={(e) => setDropReason(e.target.value)}
+                  className="w-full px-3 py-2 bg-canvas border border-borderline rounded-lg text-navy text-xs"
+                >
+                  <option value="Salary expectations mismatch">Salary expectations mismatch</option>
+                  <option value="Failed technical / practical evaluation">Failed technical / practical evaluation</option>
+                  <option value="Candidate declined offer">Candidate declined offer</option>
+                  <option value="Unreachable / No show for interview">Unreachable / No show for interview</option>
+                  <option value="Location / Shift timing constraints">Location / Shift timing constraints</option>
+                  <option value="Culture fit / behavioral concerns">Culture fit / behavioral concerns</option>
+                  <option value="Found alternative candidate">Found alternative candidate</option>
+                </select>
+              </div>
+            ) : (
+              <p className="text-slate-600 text-xs">
+                Candidate will be marked as Dropped directly and archived from active pipeline.
+              </p>
+            )}
 
             <div className="pt-3 border-t border-borderline flex items-center justify-end gap-2">
               <button
@@ -1960,7 +1998,7 @@ export default function CandidatePipelineTab({
               </button>
               <button
                 type="button"
-                onClick={handleDropCandidate}
+                onClick={() => handleDropCandidate()}
                 disabled={dropping}
                 className="px-3.5 py-1.5 rounded-lg bg-rose-600 text-white font-semibold hover:bg-rose-700 shadow-sm"
               >

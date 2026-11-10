@@ -98,6 +98,13 @@ test("dropCandidateStore and restoreCandidateStore manage candidate rejection an
   assert.ok(restored, "Candidate restore should succeed");
   assert.equal(restored?.status, "Active");
   assert.equal(restored?.archived, false);
+
+  // Dropping before interview with no reason should leave archiveReason empty
+  const droppedDirect = await dropCandidateStore(candidate.id);
+  assert.ok(droppedDirect, "Direct drop without reason should succeed");
+  assert.equal(droppedDirect?.status, "Dropped");
+  assert.equal(droppedDirect?.archived, true);
+  assert.equal(droppedDirect?.archiveReason, "");
 });
 
 test("completing final stage (Onboarding) marks candidate as Hired", async () => {

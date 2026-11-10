@@ -1011,13 +1011,13 @@ export async function toggleCandidateChecklistStore(
 /**
  * Marks a candidate as dropped / rejected with reasons.
  */
-export async function dropCandidateStore(id: string, reason: string): Promise<FmsCandidate | null> {
+export async function dropCandidateStore(id: string, reason?: string): Promise<FmsCandidate | null> {
   return updateFmsCandidateStore(id, {
     status: "Dropped",
     interviewStatus: "Dropped",
     applicationStatus: "Dropped",
     archived: true,
-    archiveReason: reason || "Discontinued / Dropped",
+    archiveReason: reason ?? "",
   });
 }
 

@@ -156,7 +156,7 @@ export async function POST(req: Request) {
 
     // Drop / Reject action
     if (body.action === "drop" && body.id) {
-      const dropped = await dropCandidateStore(body.id, body.reason || "Dropped");
+      const dropped = await dropCandidateStore(body.id, body.reason ?? "");
       if (!dropped) {
         return NextResponse.json(
           { success: false, message: `Candidate ${body.id} not found` },
