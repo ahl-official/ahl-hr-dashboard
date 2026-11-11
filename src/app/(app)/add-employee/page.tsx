@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { ArrowLeft, ArrowRight, BellRing, CheckCircle2, Clock, Copy, Loader2, MonitorSmartphone, Send, ShieldCheck, Smartphone } from "lucide-react";
 import { COMPANIES } from "@/lib/constants";
 import { formatDateTime } from "@/lib/date-utils";
+import { CreatableSelect } from "@/components/ui/CreatableSelect";
 
 type Mode = "link" | "device";
 type Invite = { inviteId: string; name: string; company: string; mode: Mode; status: string; createdAt: string; employeeId: string };
@@ -163,9 +164,9 @@ function AddEmployeeForm() {
             <div className="sm:col-span-2"><label className={lbl}>WhatsApp number *</label><input required inputMode="numeric" className={input} value={form.mobile} onChange={(e) => set("mobile", e.target.value)} placeholder="10-digit mobile number" /></div>
           )}
           <div><label className={lbl}>Company *</label>
-            <select required className={input} value={form.company} onChange={(e) => set("company", e.target.value)}>{COMPANIES.map((c) => <option key={c}>{c}</option>)}</select></div>
+            <CreatableSelect category="company" required className={input} value={form.company} onChange={(v) => set("company", v)} options={COMPANIES} customPlaceholder="Enter new company name" /></div>
           <div><label className={lbl}>Department *</label>
-            <select required className={input} value={form.department} onChange={(e) => set("department", e.target.value)}><option value="">Select department</option>{departments.map((d) => <option key={d}>{d}</option>)}</select></div>
+            <CreatableSelect category="department" required className={input} value={form.department} onChange={(v) => set("department", v)} options={departments} placeholder="Select department" customPlaceholder="Enter new department" /></div>
           <div><label className={lbl}>Designation *</label><input required className={input} value={form.designation} onChange={(e) => set("designation", e.target.value)} /></div>
           <div><label className={lbl}>Reporting manager *</label><input required className={input} value={form.manager} onChange={(e) => set("manager", e.target.value)} /></div>
           <div><label className={lbl}>Joining date *</label><input required type="date" className={input} value={form.doj} onChange={(e) => set("doj", e.target.value)} /></div>

@@ -30,6 +30,7 @@ import {
 import type { FmsCandidate, FmsInterviewRecord } from "@/types/fms";
 import type { EnrichedInterview, ScheduleInterviewInput } from "@/lib/fms-candidates-store";
 import { normalizeFmsPhone } from "@/lib/fms-rules";
+import { CreatableSelect } from "@/components/ui/CreatableSelect";
 
 interface TodayInterviewsTabProps {
   onNavigateToCandidate?: (candidateId: string) => void;
@@ -997,17 +998,19 @@ export default function TodayInterviewsTab({
                 <label className="block text-xs font-bold text-navy mb-1">
                   Interview Round *
                 </label>
-                <select
+                <CreatableSelect
+                  category="interviewRound"
                   value={schedRoundName}
-                  onChange={(e) => setSchedRoundName(e.target.value)}
+                  onChange={(val) => setSchedRoundName(val)}
+                  options={[
+                    { value: "Initial Screening Call", label: "Round 1: Initial Screening Call" },
+                    { value: "Salon Practical Demo & Cut Trial", label: "Round 2: Salon Practical Demo & Cut Trial" },
+                    { value: "Technical Hair & Extensions Assessment", label: "Round 3: Technical Hair & Extensions Assessment" },
+                    { value: "HR Culture & Values Alignment", label: "Round 4: HR Culture & Values Alignment" },
+                    { value: "Founder Final Round", label: "Round 5: Founder Final Round" },
+                  ]}
                   className="w-full text-xs p-2 bg-canvas border border-borderline rounded-lg text-navy font-medium focus:outline-hidden"
-                >
-                  <option value="Initial Screening Call">Round 1: Initial Screening Call</option>
-                  <option value="Salon Practical Demo & Cut Trial">Round 2: Salon Practical Demo & Cut Trial</option>
-                  <option value="Technical Hair & Extensions Assessment">Round 3: Technical Hair & Extensions Assessment</option>
-                  <option value="HR Culture & Values Alignment">Round 4: HR Culture & Values Alignment</option>
-                  <option value="Founder Final Round">Round 5: Founder Final Round</option>
-                </select>
+                />
               </div>
 
               {/* Date & Time */}
@@ -1045,17 +1048,19 @@ export default function TodayInterviewsTab({
                   <label className="block text-xs font-bold text-navy mb-1">
                     Interview Mode *
                   </label>
-                  <select
+                  <CreatableSelect
+                    category="interviewMode"
                     value={schedMode}
-                    onChange={(e) =>
-                      setSchedMode(e.target.value as "In-Person" | "Video Call" | "Phone Call")
+                    onChange={(val) =>
+                      setSchedMode(val as "In-Person" | "Video Call" | "Phone Call")
                     }
+                    options={[
+                      { value: "In-Person", label: "In-Person (Salon Station)" },
+                      { value: "Video Call", label: "Video Call (Google Meet)" },
+                      { value: "Phone Call", label: "Phone Call" },
+                    ]}
                     className="w-full text-xs p-2 bg-canvas border border-borderline rounded-lg text-navy font-medium focus:outline-hidden"
-                  >
-                    <option value="In-Person">In-Person (Salon Station)</option>
-                    <option value="Video Call">Video Call (Google Meet)</option>
-                    <option value="Phone Call">Phone Call</option>
-                  </select>
+                  />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-navy mb-1">

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { X, Paperclip, Loader2, FileCheck } from "lucide-react";
 import { EmployeeSummary, DocumentType, DocumentStatus } from "@/types";
 import { DOCUMENT_TYPES, DOCUMENT_STATUSES } from "@/lib/constants";
+import { CreatableSelect } from "@/components/ui/CreatableSelect";
 
 interface DocumentModalProps {
   isOpen: boolean;
@@ -140,18 +141,14 @@ export function DocumentModal({
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
                 Document Type *
               </label>
-              <select
+              <CreatableSelect
+                category="documentType"
                 value={documentType}
-                onChange={(e) => setDocumentType(e.target.value as any)}
+                onChange={(val) => setDocumentType(val as any)}
+                options={DOCUMENT_TYPES}
                 required
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-medium focus:bg-white focus:border-indigo-500"
-              >
-                {DOCUMENT_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
 
             <div>

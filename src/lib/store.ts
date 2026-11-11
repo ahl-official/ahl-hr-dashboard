@@ -21,6 +21,8 @@ import {
 import { trustedNowMs } from "./google-auth";
 import { ValidationError, isIsoDate, isEmail } from "./validate";
 import { formatEmployeeId, nextEmployeeNumber } from "./employee-id";
+import { getCustomDropdownOptions } from "./custom-dropdowns";
+import { normalizeDropdownValue } from "./custom-dropdown-rules";
 
 const RANGES = ["Employees!A:AX", "HR_Meetings!A:Q", "HR_Documents!A:M", "HR_Status!A:L", "Departments!A:D"] as const;
 
@@ -419,7 +421,16 @@ export async function addMeetingRecord(meeting: any): Promise<MeetingRecord> {
   for (const [label, value] of [["Scheduled date", meeting.scheduledDate], ["Meeting date", meeting.meetingDate], ["Follow-up date", meeting.nextFollowUpDate]] as const) {
     if (value && !isIsoDate(value)) throw new ValidationError(`${label} must be a valid date (YYYY-MM-DD).`);
   }
-  if (meeting.meetingType && !["Onboarding Feedback", "Quarterly Review", "Appraisal", "Warning", "General", "Follow-Up", "Exit Meeting"].includes(meeting.meetingType)) throw new ValidationError("Unknown meeting type.");
+  if (meeting.meetingType) {
+    const builtInTypes = ["Onboarding Feedback", "Quarterly Review", "Appraisal", "Warning", "General", "Follow-Up", "Exit Meeting"];
+    const isBuiltIn = builtInTypes.includes(meeting.meetingType);
+    if (!isBuiltIn) {
+      const customTypes = await getCustomDropdownOptions("meetingType");
+      if (!customTypes.some((t) => t.toLowerCase() === clean(meeting.meetingType).toLowerCase())) {
+        throw new ValidationError("Unknown meeting type.");
+      }
+    }
+  }
   const meetingId = validRecordId(meeting.meetingId, "MTG"), existing = snapshot.meetings.find((item) => item.meetingId === meetingId);
   if (existing) return existing;
   const now = nowSerial();
@@ -509,6 +520,39 @@ export async function updateEmployeeStatusRecord(payload: any): Promise<StatusRe
 }
 
 export async function getCanonicalDepartments() { return (await loadSnapshot()).departments.filter((department) => department.active); }
+export async function addCanonicalDepartment(rawName: string): Promise<DepartmentMeta> {
+  const departmentName = normalizeDropdownValue(rawName);
+  if (!departmentName) throw new ValidationError("Please enter a valid department name.");
+
+  const snapshot = await loadSnapshot(true);
+  const existing = snapshot.departments.find((d) => d.departmentName.toLowerCase() === departmentName.toLowerCase());
+  if (existing && existing.active) return existing;
+
+  const rawRows = await getValues("Departments!A:D");
+  if (existing) {
+    const rowIdx = rawRows.slice(1).findIndex((r) => clean(r[1]).toLowerCase() === departmentName.toLowerCase());
+    if (rowIdx >= 0) {
+      const actualRow = rowIdx + 2;
+      await updateValues(`Departments!C${actualRow}`, [[true]]);
+      invalidateCache();
+      return { ...existing, active: true };
+    }
+  }
+
+  let maxNum = 0;
+  let maxOrder = 0;
+  for (const d of snapshot.departments) {
+    const numMatch = d.departmentId.match(/(\d+)$/);
+    if (numMatch) maxNum = Math.max(maxNum, Number(numMatch[1]));
+    maxOrder = Math.max(maxOrder, d.displayOrder || 0);
+  }
+
+  const departmentId = `DEPT-${String(maxNum + 1).padStart(3, "0")}`;
+  const displayOrder = maxOrder + 1;
+  await appendValues("Departments!A:D", [[departmentId, departmentName, true, displayOrder]]);
+  invalidateCache();
+  return { departmentId, departmentName, active: true, displayOrder };
+}
 export async function getFullDashboardData(): Promise<DashboardApiResponse> {
   const snapshot = await loadSnapshot();
   return { success: true, sourceTitle: snapshot.sourceTitle, sourceSheet: "Employees", generatedAt: new Date(trustedNowMs()).toISOString(),

@@ -7,6 +7,7 @@ import { MEETING_TYPES } from "@/lib/constants";
 import { getTodayLocalIsoDate } from "@/lib/date-utils";
 import { deriveMeetingColumns, validateMeetingForm } from "@/lib/meeting-rules";
 import { Modal } from "@/components/ui/Modal";
+import { CreatableSelect } from "@/components/ui/CreatableSelect";
 
 interface MeetingModalProps {
   isOpen: boolean;
@@ -114,9 +115,7 @@ export function MeetingModal({ isOpen, onClose, employees, prefill, onSave }: Me
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className={label}>Type *</label>
-            <select value={meetingType} onChange={(e) => setMeetingType(e.target.value as MeetingType)} className={field}>
-              {MEETING_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-            </select>
+            <CreatableSelect category="meetingType" value={meetingType} onChange={(val) => setMeetingType(val as MeetingType)} options={MEETING_TYPES} className={field} />
           </div>
           <div>
             <label className={label}>Date *</label>

@@ -20,6 +20,7 @@ import { CANONICAL_DEPARTMENTS, COMPANIES, GENDERS, DIETARY_PREFERENCES, VEHICLE
 import { getTodayLocalIsoDate } from "@/lib/date-utils";
 import { validateOnboardingStep, getIfscValidationError } from "@/lib/validate";
 import { EmployeeSummary } from "@/types";
+import { CreatableSelect } from "@/components/ui/CreatableSelect";
 
 const SENSITIVE_FIELDS = ["aadhar", "pan", "accountNumber", "ifsc", "lastSalary", "signature", "declaration"];
 
@@ -284,19 +285,15 @@ export function AddEmployeeWizard({ prefill, submitUrl, onSubmitted }: AddEmploy
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
                   Company *
                 </label>
-                <select
+                <CreatableSelect
+                  category="company"
                   value={formData.company}
                   disabled={isLocked("company")}
-                  onChange={(e) => updateField("company", e.target.value)}
+                  onChange={(val) => updateField("company", val)}
+                  options={COMPANIES}
                   required
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-indigo-500"
-                >
-                  {COMPANIES.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
 
               <div>
@@ -318,19 +315,15 @@ export function AddEmployeeWizard({ prefill, submitUrl, onSubmitted }: AddEmploy
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
                   Department *
                 </label>
-                <select
+                <CreatableSelect
+                  category="department"
                   value={formData.department}
                   disabled={isLocked("department")}
-                  onChange={(e) => updateField("department", e.target.value)}
+                  onChange={(val) => updateField("department", val)}
+                  options={CANONICAL_DEPARTMENTS}
                   required
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-indigo-500"
-                >
-                  {CANONICAL_DEPARTMENTS.map((d) => (
-                    <option key={d} value={d}>
-                      {d}
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
 
               <div>
@@ -416,33 +409,27 @@ export function AddEmployeeWizard({ prefill, submitUrl, onSubmitted }: AddEmploy
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
                   Gender
                 </label>
-                <select
+                <CreatableSelect
+                  category="gender"
                   value={formData.gender}
-                  onChange={(e) => updateField("gender", e.target.value)}
+                  onChange={(val) => updateField("gender", val)}
+                  options={GENDERS}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-indigo-500"
-                >
-                  {GENDERS.map((g) => (
-                    <option key={g} value={g}>
-                      {g}
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
                   Blood Group
                 </label>
-                <select
+                <CreatableSelect
+                  category="bloodGroup"
                   value={formData.bloodGroup}
-                  onChange={(e) => updateField("bloodGroup", e.target.value)}
+                  onChange={(val) => updateField("bloodGroup", val)}
+                  options={BLOOD_GROUPS}
+                  placeholder="Select blood group"
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:border-indigo-500"
-                >
-                  <option value="">Select blood group</option>
-                  {BLOOD_GROUPS.map((g) => (
-                    <option key={g} value={g}>{g}</option>
-                  ))}
-                </select>
+                />
               </div>
             </div>
 
@@ -834,51 +821,39 @@ export function AddEmployeeWizard({ prefill, submitUrl, onSubmitted }: AddEmploy
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
                   Dietary Preference
                 </label>
-                <select
+                <CreatableSelect
+                  category="dietaryPreference"
                   value={formData.dietaryPreference}
-                  onChange={(e) => updateField("dietaryPreference", e.target.value)}
+                  onChange={(val) => updateField("dietaryPreference", val)}
+                  options={DIETARY_PREFERENCES}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-medium"
-                >
-                  {DIETARY_PREFERENCES.map((d) => (
-                    <option key={d} value={d}>
-                      {d}
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
                   Vehicle Ownership
                 </label>
-                <select
+                <CreatableSelect
+                  category="vehicleOwnership"
                   value={formData.vehicleOwnership}
-                  onChange={(e) => updateField("vehicleOwnership", e.target.value)}
+                  onChange={(val) => updateField("vehicleOwnership", val)}
+                  options={VEHICLE_OWNERSHIPS}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-medium"
-                >
-                  {VEHICLE_OWNERSHIPS.map((v) => (
-                    <option key={v} value={v}>
-                      {v}
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
                   Housing Status
                 </label>
-                <select
+                <CreatableSelect
+                  category="housingStatus"
                   value={formData.housingStatus}
-                  onChange={(e) => updateField("housingStatus", e.target.value)}
+                  onChange={(val) => updateField("housingStatus", val)}
+                  options={HOUSING_STATUSES}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-medium"
-                >
-                  {HOUSING_STATUSES.map((h) => (
-                    <option key={h} value={h}>
-                      {h}
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
             </div>
 

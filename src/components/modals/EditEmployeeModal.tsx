@@ -17,7 +17,8 @@ import {
   Edit3,
 } from "lucide-react";
 import { EmployeeSummary } from "@/types";
-import { COMPANIES, CANONICAL_DEPARTMENTS } from "@/lib/constants";
+import { COMPANIES, CANONICAL_DEPARTMENTS, GENDERS } from "@/lib/constants";
+import { CreatableSelect } from "@/components/ui/CreatableSelect";
 
 interface EditEmployeeModalProps {
   isOpen: boolean;
@@ -252,34 +253,26 @@ export function EditEmployeeModal({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className={labelClass}>Company *</label>
-                  <select
+                  <CreatableSelect
+                    category="company"
                     value={company}
-                    onChange={(e) => setCompany(e.target.value)}
+                    onChange={(val) => setCompany(val)}
+                    options={availableCompanies}
                     className={inputClass}
                     required
-                  >
-                    {availableCompanies.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
 
                 <div>
                   <label className={labelClass}>Department *</label>
-                  <select
+                  <CreatableSelect
+                    category="department"
                     value={department}
-                    onChange={(e) => setDepartment(e.target.value)}
+                    onChange={(val) => setDepartment(val)}
+                    options={availableDepartments}
                     className={inputClass}
                     required
-                  >
-                    {availableDepartments.map((d) => (
-                      <option key={d} value={d}>
-                        {d}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
               </div>
 
@@ -354,15 +347,13 @@ export function EditEmployeeModal({
 
                 <div>
                   <label className={labelClass}>Gender</label>
-                  <select
+                  <CreatableSelect
+                    category="gender"
                     value={gender}
-                    onChange={(e) => setGender(e.target.value)}
+                    onChange={(val) => setGender(val)}
+                    options={GENDERS}
                     className={inputClass}
-                  >
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Other">Other</option>
-                  </select>
+                  />
                 </div>
 
                 <div>

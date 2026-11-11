@@ -8,7 +8,8 @@ export type MeetingType =
   | "Warning"
   | "General"
   | "Follow-Up"
-  | "Exit Meeting";
+  | "Exit Meeting"
+  | (string & {});
 
 export type DocumentType =
   | "Joining Letter"
@@ -17,7 +18,8 @@ export type DocumentType =
   | "Exit"
   | "Relieving Letter"
   | "Onboarding Form"
-  | "Other";
+  | "Other"
+  | (string & {});
 
 export interface MasterField {
   label: string;

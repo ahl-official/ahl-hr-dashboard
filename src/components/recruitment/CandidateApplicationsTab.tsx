@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import type { FmsCandidate, FmsRequisition } from "@/types/fms";
 import { normalizeFmsPhone } from "@/lib/fms-rules";
+import { CreatableSelect } from "@/components/ui/CreatableSelect";
 
 interface CandidateApplicationsTabProps {
   initialRequisitionId?: string;
@@ -1137,17 +1138,13 @@ export default function CandidateApplicationsTab({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <label className="font-semibold text-navy">Source Channel</label>
-                    <select
+                    <CreatableSelect
+                      category="sourceChannel"
                       value={formSource}
-                      onChange={(e) => setFormSource(e.target.value)}
+                      onChange={(val) => setFormSource(val)}
+                      options={SOURCE_CHANNELS}
                       className="w-full px-3 py-2 bg-canvas border border-borderline rounded-lg text-navy focus:outline-none focus:ring-1 focus:ring-primary"
-                    >
-                      {SOURCE_CHANNELS.map((s) => (
-                        <option key={s} value={s}>
-                          {s}
-                        </option>
-                      ))}
-                    </select>
+                    />
                   </div>
 
                   <div className="space-y-1">

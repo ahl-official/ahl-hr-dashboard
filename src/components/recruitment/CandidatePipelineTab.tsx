@@ -39,6 +39,8 @@ import {
 import type { FmsCandidate, FmsRequisition, FmsStageMeta } from "@/types/fms";
 import { FMS_CANDIDATE_STAGES } from "@/types/fms";
 import { calculateFmsDelay, getNextStagePlannedDate, normalizeFmsPhone } from "@/lib/fms-rules";
+import { CANONICAL_DEPARTMENTS, COMPANIES } from "@/lib/constants";
+import { CreatableSelect } from "@/components/ui/CreatableSelect";
 import Link from "next/navigation";
 import FmsReportModal from "./FmsReportModal";
 
@@ -95,8 +97,8 @@ export default function CandidatePipelineTab({
   const [onboardForm, setOnboardForm] = useState({
     name: "",
     mobile: "",
-    company: "American Hairlines",
-    department: "Operations",
+    company: COMPANIES[0] as string,
+    department: CANONICAL_DEPARTMENTS[0] as string,
     designation: "",
     manager: "HR Operations",
     doj: new Date().toISOString().slice(0, 10),
@@ -500,7 +502,7 @@ export default function CandidatePipelineTab({
 
     const req = requisitions.find((r) => r.id === cand.requisitionId);
     const brandCompany =
-      cand.brand === "alchamae" ? "Alchamae" : "American Hairlines";
+      cand.brand === "alchamae" ? COMPANIES[1] : COMPANIES[0];
     const joDate =
       cand.stageData?.jo?.joiningDate ||
       new Date().toISOString().slice(0, 10);
@@ -509,7 +511,7 @@ export default function CandidatePipelineTab({
       name: cand.fullName || "",
       mobile: normalizeFmsPhone(cand.phone || ""),
       company: brandCompany,
-      department: req?.department || "Operations",
+      department: req?.department || CANONICAL_DEPARTMENTS[0],
       designation: cand.position || req?.jobTitle || "Senior Hair Stylist",
       manager: req?.hiringManager || "HR Operations",
       doj: joDate,
@@ -1729,20 +1731,16 @@ export default function CandidatePipelineTab({
                         <div key={field.key} className="space-y-1">
                           <label className="font-semibold text-navy text-[11px]">{field.label}</label>
                           {field.type === "select" ? (
-                            <select
+                            <CreatableSelect
+                              category={`fms_field_${field.key}`}
                               value={fieldFormValues[field.key] || ""}
-                              onChange={(e) =>
-                                setFieldFormValues((prev) => ({ ...prev, [field.key]: e.target.value }))
+                              onChange={(val) =>
+                                setFieldFormValues((prev) => ({ ...prev, [field.key]: val }))
                               }
+                              options={field.opts || []}
+                              placeholder="-- Select --"
                               className="w-full px-2.5 py-1.5 bg-white border border-borderline rounded-lg text-navy text-xs focus:ring-1 focus:ring-primary"
-                            >
-                              <option value="">-- Select --</option>
-                              {field.opts?.map((opt) => (
-                                <option key={opt} value={opt}>
-                                  {opt}
-                                </option>
-                              ))}
-                            </select>
+                            />
                           ) : field.type === "textarea" ? (
                             <textarea
                               rows={2}
@@ -1989,19 +1987,21 @@ export default function CandidatePipelineTab({
             {!isCandidateBeforeInterview(selectedCand) && getStageMeta(selectedCand?.currentStage || "").id !== "ar" ? (
               <div className="space-y-1.5">
                 <label className="font-semibold text-navy">Reason for Dropping</label>
-                <select
+                <CreatableSelect
+                  category="dropReason"
                   value={dropReason}
-                  onChange={(e) => setDropReason(e.target.value)}
+                  onChange={(val) => setDropReason(val)}
+                  options={[
+                    "Salary expectations mismatch",
+                    "Failed technical / practical evaluation",
+                    "Candidate declined offer",
+                    "Unreachable / No show for interview",
+                    "Location / Shift timing constraints",
+                    "Culture fit / behavioral concerns",
+                    "Found alternative candidate",
+                  ]}
                   className="w-full px-3 py-2 bg-canvas border border-borderline rounded-lg text-navy text-xs"
-                >
-                  <option value="Salary expectations mismatch">Salary expectations mismatch</option>
-                  <option value="Failed technical / practical evaluation">Failed technical / practical evaluation</option>
-                  <option value="Candidate declined offer">Candidate declined offer</option>
-                  <option value="Unreachable / No show for interview">Unreachable / No show for interview</option>
-                  <option value="Location / Shift timing constraints">Location / Shift timing constraints</option>
-                  <option value="Culture fit / behavioral concerns">Culture fit / behavioral concerns</option>
-                  <option value="Found alternative candidate">Found alternative candidate</option>
-                </select>
+                />
               </div>
             ) : (
               <p className="text-slate-600 text-xs">
@@ -2199,28 +2199,25 @@ export default function CandidatePipelineTab({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <label className="font-semibold text-navy">Company Entity *</label>
-                    <select
+                    <CreatableSelect
+                      category="company"
                       value={onboardForm.company}
-                      onChange={(e) => setOnboardForm((f) => ({ ...f, company: e.target.value }))}
+                      onChange={(val) => setOnboardForm((f) => ({ ...f, company: val }))}
+                      options={COMPANIES}
+                      required
                       className="w-full px-3 py-2 bg-canvas border border-borderline rounded-lg text-navy font-medium cursor-pointer"
-                    >
-                      <option value="American Hairlines">American Hairlines</option>
-                      <option value="Alchamae">Alchamae</option>
-                    </select>
+                    />
                   </div>
                   <div className="space-y-1">
                     <label className="font-semibold text-navy">Department *</label>
-                    <select
+                    <CreatableSelect
+                      category="department"
                       value={onboardForm.department}
-                      onChange={(e) => setOnboardForm((f) => ({ ...f, department: e.target.value }))}
+                      onChange={(val) => setOnboardForm((f) => ({ ...f, department: val }))}
+                      options={[...CANONICAL_DEPARTMENTS, ...departments]}
+                      required
                       className="w-full px-3 py-2 bg-canvas border border-borderline rounded-lg text-navy font-medium cursor-pointer"
-                    >
-                      {departments.map((d) => (
-                        <option key={d} value={d}>
-                          {d}
-                        </option>
-                      ))}
-                    </select>
+                    />
                   </div>
                 </div>
 
@@ -2401,14 +2398,16 @@ export default function CandidatePipelineTab({
                 </div>
                 <div className="space-y-1">
                   <label className="font-semibold text-navy">Brand Entity</label>
-                  <select
+                  <CreatableSelect
+                    category="brand"
                     value={editForm.brand || "ahl"}
-                    onChange={(e) => setEditForm((f: any) => ({ ...f, brand: e.target.value }))}
+                    onChange={(val) => setEditForm((f: any) => ({ ...f, brand: val }))}
+                    options={[
+                      { value: "ahl", label: "American Hairlines (AHL)" },
+                      { value: "alchamae", label: "Alchamae (ALC)" },
+                    ]}
                     className="w-full px-3 py-2 bg-canvas border border-borderline rounded-lg text-navy font-medium cursor-pointer"
-                  >
-                    <option value="ahl">American Hairlines (AHL)</option>
-                    <option value="alchamae">Alchamae (ALC)</option>
-                  </select>
+                  />
                 </div>
               </div>
 

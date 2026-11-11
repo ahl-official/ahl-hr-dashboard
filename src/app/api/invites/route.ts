@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCanonicalDepartments } from "@/lib/store";
+import { getCustomDropdownOptions } from "@/lib/custom-dropdowns";
 import { createInvite, listInvites } from "@/lib/invites";
 import { COMPANY_CODES } from "@/lib/employee-id";
 import { sendWhatsApp } from "@/lib/waha";
@@ -37,7 +38,11 @@ export async function POST(req: NextRequest) {
       if (!s(k)) throw new ValidationError(`${label} is required.`);
     }
     if (!isIsoDate(s("doj"))) throw new ValidationError("Joining date must be a valid date.");
-    if (!Object.keys(COMPANY_CODES).some((c) => c.toLowerCase() === s("company").toLowerCase())) throw new ValidationError("Unknown company.");
+    const customCompanies = await getCustomDropdownOptions("company");
+    const knownCompany =
+      Object.keys(COMPANY_CODES).some((c) => c.toLowerCase() === s("company").toLowerCase()) ||
+      customCompanies.some((c) => c.toLowerCase() === s("company").toLowerCase());
+    if (!knownCompany) throw new ValidationError("Unknown company.");
     const departments = await getCanonicalDepartments();
     if (!departments.some((d) => d.departmentName === s("department"))) throw new ValidationError("Please select a valid department.");
     if (mode === "link" && !isPhone(s("mobile"))) throw new ValidationError("A valid 10-digit WhatsApp number is required to send the link.");

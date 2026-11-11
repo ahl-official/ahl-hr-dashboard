@@ -26,6 +26,7 @@ import {
   Edit3,
 } from "lucide-react";
 import type { FmsRequisition } from "@/types/fms";
+import { CreatableSelect } from "@/components/ui/CreatableSelect";
 
 interface RequisitionsTabProps {
   onSelectRequisition?: (req: FmsRequisition) => void;
@@ -786,15 +787,17 @@ export default function RequisitionsTab({
 
                 <div className="space-y-1">
                   <label className="font-semibold text-navy">Brand</label>
-                  <select
+                  <CreatableSelect
+                    category="brand"
                     value={formBrand}
-                    onChange={(e) => setFormBrand(e.target.value as any)}
+                    onChange={(val) => setFormBrand(val as any)}
+                    options={[
+                      { value: "ahl", label: "American Hairline" },
+                      { value: "alchamae", label: "Alchemane" },
+                      { value: "both", label: "Both Brands" },
+                    ]}
                     className="w-full px-3 py-2 bg-canvas border border-borderline rounded-lg text-navy focus:outline-none focus:ring-1 focus:ring-primary"
-                  >
-                    <option value="ahl">American Hairline</option>
-                    <option value="alchamae">Alchemane</option>
-                    <option value="both">Both Brands</option>
-                  </select>
+                  />
                 </div>
               </div>
 
@@ -802,17 +805,13 @@ export default function RequisitionsTab({
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="space-y-1">
                   <label className="font-semibold text-navy">Department</label>
-                  <select
+                  <CreatableSelect
+                    category="department"
                     value={formDept}
-                    onChange={(e) => setFormDept(e.target.value)}
+                    onChange={(val) => setFormDept(val)}
+                    options={DEPARTMENTS_LIST}
                     className="w-full px-3 py-2 bg-canvas border border-borderline rounded-lg text-navy focus:outline-none focus:ring-1 focus:ring-primary"
-                  >
-                    {DEPARTMENTS_LIST.map((d) => (
-                      <option key={d} value={d}>
-                        {d}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
 
                 <div className="space-y-1">
@@ -1192,26 +1191,26 @@ export default function RequisitionsTab({
                     </div>
                     <div>
                       <label className="text-muted block text-[10px] uppercase font-semibold mb-1">Department *</label>
-                      <select
+                      <CreatableSelect
+                        category="department"
                         value={editReqForm.department || "Salon Operations"}
-                        onChange={(e) => setEditReqForm({ ...editReqForm, department: e.target.value })}
+                        onChange={(val) => setEditReqForm({ ...editReqForm, department: val })}
+                        options={DEPARTMENTS_LIST}
                         className="w-full px-3 py-2 bg-white border border-borderline rounded-lg text-navy font-semibold text-xs cursor-pointer"
-                      >
-                        {DEPARTMENTS_LIST.map((d) => (
-                          <option key={d} value={d}>{d}</option>
-                        ))}
-                      </select>
+                      />
                     </div>
                     <div>
                       <label className="text-muted block text-[10px] uppercase font-semibold mb-1">Brand *</label>
-                      <select
+                      <CreatableSelect
+                        category="brand"
                         value={editReqForm.brand || "ahl"}
-                        onChange={(e) => setEditReqForm({ ...editReqForm, brand: e.target.value as any })}
+                        onChange={(val) => setEditReqForm({ ...editReqForm, brand: val as any })}
+                        options={[
+                          { value: "ahl", label: "AHL (Hair Lounge)" },
+                          { value: "alchamae", label: "Al-Chamae Luxury" },
+                        ]}
                         className="w-full px-3 py-2 bg-white border border-borderline rounded-lg text-navy font-semibold text-xs cursor-pointer"
-                      >
-                        <option value="ahl">AHL (Hair Lounge)</option>
-                        <option value="alchamae">Al-Chamae Luxury</option>
-                      </select>
+                      />
                     </div>
                     <div>
                       <label className="text-muted block text-[10px] uppercase font-semibold mb-1">Openings</label>
