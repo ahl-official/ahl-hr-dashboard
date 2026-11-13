@@ -99,7 +99,7 @@ export async function formatCandidateFms() {
       requests.push({
         repeatCell: {
           range: body(i, i + 1),
-          cell: { userEnteredFormat: { numberFormat: { type: "DATE", pattern: col.kind === "profile" ? "dd/mm/yyyy hh:mm" : "dd/mm/yyyy" } } },
+          cell: { userEnteredFormat: { numberFormat: { type: "DATE", pattern: col.kind === "profile" && col.prop !== "droppedDate" ? "dd/mm/yyyy hh:mm" : "dd/mm/yyyy" } } },
           fields: "userEnteredFormat.numberFormat",
         },
       });
