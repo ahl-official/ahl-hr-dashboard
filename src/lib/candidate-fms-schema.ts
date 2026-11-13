@@ -14,7 +14,7 @@ export const CANDIDATE_FMS_TAB = "Candidate FMS";
 type ProfileProp =
   | "id" | "fmsId" | "fullName" | "phone" | "email" | "position" | "requisitionId" | "brand"
   | "source" | "city" | "area" | "currentStage" | "status" | "notes"
-  | "interviewStatus" | "archived" | "archiveReason" | "createdAt" | "updatedAt";
+  | "interviewStatus" | "archived" | "archiveReason" | "droppedDate" | "createdAt" | "updatedAt";
 
 export type CandidateFmsColumn =
   | { kind: "profile"; header: string; prop: ProfileProp; group: "profile" | "system"; aliases?: string[]; date?: boolean }
@@ -53,6 +53,10 @@ const STAGE_ALIASES: Record<string, string[]> = { ps: ["Pre-Screening"] };
 
 // Web-app fields already stored elsewhere in the row.
 const SKIPPED_FIELDS = new Set(["sourceChannel"]);
+
+// Stages whose outcome field (e.g. Application Status) replaces the generic Pending/Completed
+// Status column; that status is derived from Current Stage and Overall Status instead.
+const OUTCOME_STATUS_STAGES = new Set(["ar"]);
 
 // Stage fields that the web app also keeps on the candidate itself.
 const TOP_LEVEL_MIRRORS: Record<string, string> = {
@@ -95,7 +99,9 @@ function buildColumns(): CandidateFmsColumn[] {
       aliases: names.map((n) => `${n} ${oldSuffix}`),
     });
 
-    cols.push(stageCol("Planned", "plannedDate", true), stageCol("Actual", "actualDate", true), stageCol("Status", "status"));
+    cols.push(stageCol("Planned", "plannedDate", true), stageCol("Actual", "actualDate", true));
+    // Where HR records the stage outcome in its own field, that field is the stage's status column.
+    if (!OUTCOME_STATUS_STAGES.has(stage.id)) cols.push(stageCol("Status", "status"));
     for (const field of stage.fields) {
       if (SKIPPED_FIELDS.has(field.key)) continue;
       cols.push({
@@ -117,6 +123,8 @@ function buildColumns(): CandidateFmsColumn[] {
     { kind: "json", header: "Stage Data (JSON)", aliases: ["StageDataJSON", "Stage Data"] },
     { kind: "profile", group: "system", header: "Created Date", prop: "createdAt", aliases: ["Created At", "Timestamp"], date: true },
     { kind: "profile", group: "system", header: "Updated Date", prop: "updatedAt", aliases: ["Updated At"], date: true },
+    // Last column so older deployments, which write rows by position, never overwrite it.
+    { kind: "profile", group: "system", header: "Dropped Date", prop: "droppedDate", date: true },
   );
 
   const seen = new Set<string>();
@@ -168,10 +176,29 @@ export function formatDelayText(planned: string, actual: string, today: string):
   return `${days} ${days === 1 ? "day" : "days"} ${actual ? "late" : "overdue"}`;
 }
 
-/** Reads a delay cell — accepts "3 days late" as well as legacy plain numbers. */
+/** Delay text for a dropped candidate's stage: frozen at the drop date instead of counting on. */
+export function formatDroppedDelayText(planned: string, droppedDate: string): string {
+  const days = planned && droppedDate ? daysBetween(planned, droppedDate) : 0;
+  return days > 0 ? `Dropped – ${days} ${days === 1 ? "day" : "days"} overdue` : "Dropped";
+}
+
+/** Reads a delay cell — accepts "3 days late", "Dropped – 3 days overdue" and legacy plain numbers. */
 export function parseDelayDays(value: unknown): number {
-  const n = parseInt(clean(value), 10);
-  return Number.isNaN(n) ? 0 : Math.max(0, n);
+  const match = clean(value).match(/\d+/);
+  return match ? Number(match[0]) : 0;
+}
+
+/** Dropping stops the candidate's pipeline; restoring clears both flags. */
+export function isCandidateDropped(cand: Partial<FmsCandidate>): boolean {
+  return clean(cand.status).toLowerCase() === "dropped" || Boolean(cand.archived);
+}
+
+const STAGE_INDEX: Record<string, number> = Object.fromEntries(FMS_CANDIDATE_STAGES.map((s, i) => [s.id, i]));
+
+function currentStageIndex(cand: Partial<FmsCandidate>): number {
+  const name = clean(cand.currentStage).toLowerCase();
+  const i = FMS_CANDIDATE_STAGES.findIndex((s) => s.name.toLowerCase() === name || s.id === name);
+  return Math.max(0, i);
 }
 
 function emptyStage(): FmsCandidateStageTracking {
@@ -247,6 +274,19 @@ export function rowToCandidateFields(row: unknown[], index: Map<CandidateFmsColu
   }
 
   if (cand.email) cand.personalDetails.personalEmail = cand.email;
+  const dropped = isCandidateDropped(cand);
+  // Rows dropped before the Dropped Date column existed: the last update is when it happened.
+  if (dropped && !cand.droppedDate && cand.updatedAt) cand.droppedDate = String(cand.updatedAt).slice(0, 10);
+
+  // Stages without a Status column take it from where the candidate is.
+  const currentIdx = currentStageIndex(cand);
+  for (const stage of FMS_CANDIDATE_STAGES) {
+    const hasColumn = [...index.keys()].some((c) => c.kind === "stage" && c.stage === stage.id && c.part === "status");
+    if (hasColumn) continue;
+    const idx = STAGE_INDEX[stage.id];
+    cand.stages[stage.id].status =
+      idx < currentIdx ? "Completed" : idx > currentIdx ? "Pending" : dropped ? "Dropped" : "In Progress";
+  }
   return cand as Partial<FmsCandidate>;
 }
 
@@ -262,6 +302,57 @@ function fieldCandidates(cand: Partial<FmsCandidate>, stage: string, key: string
   ];
 }
 
+/** A stage field's value; when `original` is given, the copy that differs from it wins. */
+function resolveField(cand: Partial<FmsCandidate>, stage: string, key: string, original?: Partial<FmsCandidate>): string {
+  const values = fieldCandidates(cand, stage, key).map(clean);
+  const before = original ? resolveField(original, stage, key) : "";
+  const changed = values.find((v) => v !== "" && v !== before);
+  return changed ?? (values.find((v) => v !== "") || "");
+}
+
+// Status fields per stage. Changing one to an outcome stamps that stage's Actual date.
+const STATUS_FIELDS: Record<string, string[]> = {
+  ar: ["applicationStatus"],
+  ps: ["interviewUpdateStatus", "rescheduledStatus"],
+};
+const OPEN_STATUSES = new Set(["", "Under Review", "Pending"]);
+
+/**
+ * Stamps Actual dates when a candidate's status changes, comparing against `prev` (the saved row):
+ * - a status field of the stage they are in changes to an outcome → that stage's Actual = today
+ * - dropped → current stage reads Dropped with Actual = Dropped Date
+ * - restored → current stage back to In Progress, the drop's Actual date removed
+ * Stages already behind the candidate are never touched.
+ */
+export function applyStatusDates<T extends Partial<FmsCandidate>>(next: T, prev: Partial<FmsCandidate> | undefined, today: string): T {
+  if (!prev) return next;
+  const c: T = { ...next, stages: { ...(next.stages || {}) } };
+  const stages = c.stages as Record<string, FmsCandidateStageTracking>;
+  const setStage = (id: string, patch: Partial<FmsCandidateStageTracking>) => {
+    stages[id] = { ...emptyStage(), ...stages[id], ...patch };
+  };
+  const currentId = FMS_CANDIDATE_STAGES[currentStageIndex(c)].id;
+
+  const statusChanged = (STATUS_FIELDS[currentId] || []).some((key) => {
+    const now = resolveField(c, currentId, key, prev);
+    return now !== resolveField(prev, currentId, key) && !OPEN_STATUSES.has(now);
+  });
+  if (statusChanged) setStage(currentId, { actualDate: today });
+
+  const wasDropped = isCandidateDropped(prev);
+  const isDropped = isCandidateDropped(c);
+  if (isDropped && !wasDropped) {
+    c.droppedDate = clean(c.droppedDate) || today;
+    setStage(currentId, { status: "Dropped", actualDate: c.droppedDate });
+  } else if (!isDropped && wasDropped) {
+    const stampedByDrop = clean(stages[currentId]?.actualDate) === clean(prev.droppedDate);
+    setStage(currentId, { status: "In Progress" });
+    if (stampedByDrop) delete stages[currentId].actualDate;
+    c.droppedDate = "";
+  }
+  return c;
+}
+
 /**
  * Serialises a candidate into a row in CANDIDATE_FMS_HEADERS order.
  * A stage field can live in several places on the candidate (top-level, fieldValues, stageData);
@@ -269,6 +360,9 @@ function fieldCandidates(cand: Partial<FmsCandidate>, stage: string, key: string
  */
 export function candidateToRow(cand: Partial<FmsCandidate>, original?: Partial<FmsCandidate>, today = new Date().toISOString().slice(0, 10)): unknown[] {
   const now = new Date().toISOString();
+  const dropped = isCandidateDropped(cand);
+  const droppedDate = dropped ? clean(cand.droppedDate) || clean(original?.droppedDate) || today : "";
+  const currentIdx = currentStageIndex(cand);
 
   return CANDIDATE_FMS_COLUMNS.map((col) => {
     if (col.kind === "profile") {
@@ -280,6 +374,7 @@ export function candidateToRow(cand: Partial<FmsCandidate>, original?: Partial<F
         case "currentStage": return cand.currentStage || FMS_CANDIDATE_STAGES[0].name;
         case "status": return cand.status || "Active";
         case "archived": return cand.archived ? "TRUE" : "";
+        case "droppedDate": return droppedDate;
         case "createdAt": return cand.createdAt || now;
         case "updatedAt": return cand.updatedAt || now;
         default: return clean((cand as any)[col.prop]);
@@ -291,17 +386,34 @@ export function candidateToRow(cand: Partial<FmsCandidate>, original?: Partial<F
       const data = cand.stageData?.[col.stage] || {};
       const planned = clean(st?.plannedDate || data.plannedDate);
       const actual = clean(st?.actualDate || data.actualDate);
+      const status = st?.status || data.status || "Pending";
+
+      // A dropped candidate stops at the stage they were in: that stage reads "Dropped", its Actual is
+      // the drop date and its delay is frozen there; the stages after it stay empty.
+      if (dropped) {
+        const stageIdx = STAGE_INDEX[col.stage];
+        if (stageIdx > currentIdx) return "";
+        if (stageIdx === currentIdx) {
+          if (col.part === "actualDate") return actual || droppedDate;
+          if (col.part === "status") return "Dropped";
+          if (col.part === "delayDays") return formatDroppedDelayText(planned, droppedDate);
+        }
+      }
+
       if (col.part === "plannedDate") return planned;
       if (col.part === "actualDate") return actual;
-      if (col.part === "status") return st?.status || data.status || "Pending";
+      if (col.part === "status") return !dropped && status === "Dropped" ? "In Progress" : status;
       return formatDelayText(planned, actual, today);
     }
 
     if (col.kind === "field") {
-      const values = fieldCandidates(cand, col.stage, col.key).map(clean);
-      const before = original ? clean(fieldCandidates(original, col.stage, col.key).find((v) => clean(v))) : "";
-      const changed = values.find((v) => v !== "" && v !== before);
-      return changed ?? (values.find((v) => v !== "") || "");
+      const value = resolveField(cand, col.stage, col.key, original);
+      // Application Status is stage 1's status column: it shows a stage-1 drop and is not left
+      // blank while the candidate is still in stage 1.
+      if (col.stage === "ar" && col.key === "applicationStatus" && currentIdx === 0) {
+        return dropped ? "Dropped" : value || "Under Review";
+      }
+      return value;
     }
 
     // Stage Data JSON keeps whatever has no dedicated column (checklists, extra notes, legacy keys).
@@ -316,6 +428,19 @@ export function candidateToRow(cand: Partial<FmsCandidate>, original?: Partial<F
       if (Object.keys(data).length) json[stage.id] = data;
     }
     return JSON.stringify(json);
+  });
+}
+
+/**
+ * Reorders a schema-ordered row to match the sheet's actual header row, so writes land in the right
+ * cells even while the sheet and the deployed schema differ (e.g. mid-migration). Sheet columns the
+ * schema does not know get null, which the Sheets API leaves untouched.
+ */
+export function alignRowToSheetHeader(row: unknown[], sheetHeader: unknown[]): unknown[] {
+  const byKey = new Map(CANDIDATE_FMS_HEADERS.map((h, i) => [normalizeKey(h), i]));
+  return sheetHeader.map((h) => {
+    const i = byKey.get(normalizeKey(h));
+    return i === undefined ? null : row[i];
   });
 }
 

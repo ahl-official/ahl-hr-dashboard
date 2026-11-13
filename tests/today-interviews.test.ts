@@ -5,7 +5,7 @@ import {
   getInterviewsStats,
   scheduleInterviewStore,
   logInterviewOutcomeStore,
-  getFmsCandidateById,
+  getFmsCandidatesStore,
 } from "../src/lib/fms-candidates-store.ts";
 import { normalizeFmsPhone } from "../src/lib/fms-rules.ts";
 
@@ -62,14 +62,17 @@ test("scheduleInterviewStore books a new interview slot for an active candidate"
 });
 
 test("logInterviewOutcomeStore with status Passed advances candidate to next FMS stage", async () => {
-  const candidate = await getFmsCandidateById("CAND-0012");
-  assert.ok(candidate, "Candidate CAND-0012 must exist");
+  // Dropped candidates cannot advance, so use one that is still in the pipeline.
+  const candidate = (await getFmsCandidatesStore()).find(
+    (c) => !c.archived && c.status.toLowerCase() !== "dropped" && c.currentStage !== "Onboarding" && !["CAND-0010", "CAND-0013"].includes(c.id)
+  );
+  assert.ok(candidate, "An active candidate must exist");
   const initialStage = candidate.currentStage;
 
   // Schedule an interview first
   const today = new Date().toISOString().slice(0, 10);
   const sched = await scheduleInterviewStore({
-    candidateId: "CAND-0012",
+    candidateId: candidate.id,
     roundName: "HR Culture & Values Alignment",
     scheduledDate: today,
     scheduledTime: "02:00 PM",
@@ -81,7 +84,7 @@ test("logInterviewOutcomeStore with status Passed advances candidate to next FMS
   assert.ok(sched, "Interview should be scheduled");
 
   // Log Passed outcome with rating and auto-advance
-  const outcomeRes = await logInterviewOutcomeStore("CAND-0012", sched.interview.id, {
+  const outcomeRes = await logInterviewOutcomeStore(candidate.id, sched.interview.id, {
     status: "Passed",
     rating: 5,
     feedback: "Exceptional cultural fit, passionate about luxury salon client experience.",

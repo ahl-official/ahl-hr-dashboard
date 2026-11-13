@@ -20,6 +20,7 @@ const PALETTE = {
 };
 const STAGE_STATUSES = ["Pending", "In Progress", "Completed", "Overdue", "Dropped"];
 const DELAY_FILL = { bg: "#FDE047", text: "#713F12" };
+const DROPPED_FILL = { bg: "#E5E7EB", text: "#4B5563" };
 
 const rgb = (hex) => ({
   red: parseInt(hex.slice(1, 3), 16) / 255,
@@ -121,6 +122,24 @@ export async function formatCandidateFms() {
       });
       requests.push({
         repeatCell: { range: body(i, i + 1), cell: { userEnteredFormat: { horizontalAlignment: "CENTER" } }, fields: "userEnteredFormat.horizontalAlignment" },
+      });
+    }
+
+    // Dropped candidates' stopped stage turns grey; added last at index 0 so it beats the yellow delay rule.
+    const isStatusColumn = col.kind === "stage" ? col.part === "delayDays" || col.part === "status" : col.kind === "field" && col.key === "applicationStatus";
+    if (isStatusColumn) {
+      const ref = `${columnLetter(i + 1)}2`;
+      requests.push({
+        addConditionalFormatRule: {
+          index: 0,
+          rule: {
+            ranges: [body(i, i + 1)],
+            booleanRule: {
+              condition: { type: "CUSTOM_FORMULA", values: [{ userEnteredValue: `=REGEXMATCH(TO_TEXT(${ref}),"^Dropped")` }] },
+              format: { backgroundColor: rgb(DROPPED_FILL.bg), textFormat: { bold: true, foregroundColor: rgb(DROPPED_FILL.text) } },
+            },
+          },
+        },
       });
     }
 

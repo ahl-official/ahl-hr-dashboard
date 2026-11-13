@@ -215,6 +215,8 @@ export interface FmsCandidate {
   interviewStatus?: string; // "Active" | "Scheduled" | "Completed" | "Dropped"
   archived?: boolean;
   archiveReason?: string;
+  droppedDate?: string; // YYYY-MM-DD; the stage clock stops here
+
   applicationStatus?: "Under Review" | "Interview Scheduled" | "No Response" | "Dropped" | string;
   interviewUpdateStatus?: "Hired" | "Not Hired" | "Didn't Come for Interview" | "Rescheduled" | string;
   rescheduledDate?: string;

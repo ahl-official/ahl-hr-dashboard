@@ -212,6 +212,13 @@ export default function CandidatePipelineTab({
     setFieldFormValues({ ...existing });
   };
 
+  // Replace the optimistic copy with the saved one, which carries server-stamped Actual dates.
+  const syncSavedCandidate = (saved?: FmsCandidate) => {
+    if (!saved?.id) return;
+    setCandidates((prev) => prev.map((c) => (c.id === saved.id ? saved : c)));
+    setSelectedCand((prev) => (prev && prev.id === saved.id ? saved : prev));
+  };
+
   // Update Application Status for Stage 1 (Application Received) candidates
   const handleUpdateApplicationStatus = async (candidateId: string, newStatus: string) => {
     try {
@@ -249,6 +256,7 @@ export default function CandidatePipelineTab({
       if (!res.ok || !json.success) {
         throw new Error(json.message || "Failed to update application status");
       }
+      syncSavedCandidate(json.data);
     } catch (err: any) {
       console.error("Status update error:", err);
       alert("Error updating status: " + err.message);
@@ -301,6 +309,7 @@ export default function CandidatePipelineTab({
       if (!res.ok || !json.success) {
         throw new Error(json.message || "Failed to update interview update");
       }
+      syncSavedCandidate(json.data);
     } catch (err: any) {
       console.error("Interview update error:", err);
       alert("Error updating interview update: " + err.message);

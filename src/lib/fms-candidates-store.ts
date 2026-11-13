@@ -13,6 +13,7 @@ import {
   computeStageStatus,
 } from "./fms-rules.ts";
 import extractedData from "./fms-extracted-data.json" with { type: "json" };
+import { applyStatusDates } from "./candidate-fms-schema.ts";
 
 // In-memory cache for fast local access and mutations
 let cachedCandidates: FmsCandidate[] | null = null;
@@ -694,11 +695,8 @@ export async function updateFmsCandidateStore(
   const index = current.findIndex((c) => c.id === id || c.fmsId === id);
   if (index === -1) return null;
 
-  current[index] = {
-    ...current[index],
-    ...updates,
-    updatedAt: new Date().toISOString().slice(0, 10),
-  };
+  const today = new Date().toISOString().slice(0, 10);
+  current[index] = applyStatusDates({ ...current[index], ...updates, updatedAt: today }, current[index], today);
   cachedCandidates = current;
   lastCandidatesFetchTime = Date.now();
 
@@ -764,6 +762,9 @@ export async function advanceCandidateStageStore(
   const current = await getFmsCandidatesStore();
   const cand = current.find((c) => c.id === id || c.fmsId === id);
   if (!cand) return null;
+  if (cand.status?.toLowerCase() === "dropped" || cand.archived) {
+    throw new Error(`${cand.fullName} is dropped. Restore the candidate before moving to the next stage.`);
+  }
 
   const isIsoDate = (v?: string) => Boolean(v && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(v)));
   const realToday = new Date().toISOString().slice(0, 10);
@@ -1012,10 +1013,13 @@ export async function toggleCandidateChecklistStore(
  * Marks a candidate as dropped / rejected with reasons.
  */
 export async function dropCandidateStore(id: string, reason?: string): Promise<FmsCandidate | null> {
+  const cand = (await getFmsCandidatesStore()).find((c) => c.id === id || c.fmsId === id);
+  // Application Status is stage 1's outcome; keep it for candidates who already got past stage 1.
+  const inFirstStage = !cand || cand.currentStage === FMS_CANDIDATE_STAGES[0].name;
   return updateFmsCandidateStore(id, {
     status: "Dropped",
     interviewStatus: "Dropped",
-    applicationStatus: "Dropped",
+    ...(inFirstStage ? { applicationStatus: "Dropped" } : {}),
     archived: true,
     archiveReason: reason ?? "",
   });
@@ -1025,11 +1029,15 @@ export async function dropCandidateStore(id: string, reason?: string): Promise<F
  * Restores an archived or dropped candidate back to active pipeline.
  */
 export async function restoreCandidateStore(id: string): Promise<FmsCandidate | null> {
+  const cand = (await getFmsCandidatesStore()).find((c) => c.id === id || c.fmsId === id);
   return updateFmsCandidateStore(id, {
     status: "Active",
     interviewStatus: "Active",
     archived: false,
     archiveReason: "",
+    droppedDate: "",
+    // The stage-1 "Dropped" option is what dropped them; reopen it for review.
+    ...(cand?.applicationStatus === "Dropped" ? { applicationStatus: "Under Review" } : {}),
   });
 }
 

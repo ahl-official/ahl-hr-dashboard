@@ -12,9 +12,11 @@ import type {
 } from "../types/fms.ts";
 import {
   CANDIDATE_FMS_TAB,
-  CANDIDATE_FMS_LAST_COLUMN,
+  alignRowToSheetHeader,
+  columnLetter,
   candidateFmsIndex,
   candidateToRow,
+  applyStatusDates,
   rowToCandidateFields,
 } from "./candidate-fms-schema.ts";
 
@@ -222,6 +224,24 @@ export function candidateToFmsRow(cand: Partial<FmsCandidate>, original?: Partia
   return candidateToRow(cand, original);
 }
 
+/**
+ * Live header row of the Candidate FMS tab. Read without the offline fallback: writing against the
+ * bundled legacy headers would put values in the wrong columns, so a failed read must fail the write.
+ */
+async function getCandidateFmsSheetHeader(): Promise<unknown[]> {
+  const range = `${CANDIDATE_FMS_TAB}!1:1`;
+  const url = `${SHEETS_BASE}/${getFmsDatabaseId()}/values/${encodeURIComponent(range)}`;
+  const header = (await googleRequest<{ values?: unknown[][] }>(url)).values?.[0] || [];
+  if (!header.length) throw new Error(`${CANDIDATE_FMS_TAB} header row is empty`);
+  return header;
+}
+
+/** Candidate row ordered to match the live sheet, plus the last column letter it spans. */
+async function candidateRowForSheet(cand: Partial<FmsCandidate>, original?: Partial<FmsCandidate>) {
+  const header = await getCandidateFmsSheetHeader();
+  return { row: alignRowToSheetHeader(candidateToFmsRow(cand, original), header), lastColumn: columnLetter(header.length) };
+}
+
 export async function createFmsCandidate(
   input: Partial<FmsCandidate> & { fullName: string; phone: string }
 ): Promise<{ success: boolean; id: string; fmsId: string }> {
@@ -260,8 +280,8 @@ export async function createFmsCandidate(
     personalDetails: input.personalDetails || {},
   };
 
-  const row = candidateToFmsRow(cand);
-  await appendFmsValues(`${CANDIDATE_FMS_TAB}!A:${CANDIDATE_FMS_LAST_COLUMN}`, [row]);
+  const { row, lastColumn } = await candidateRowForSheet(cand);
+  await appendFmsValues(`${CANDIDATE_FMS_TAB}!A:${lastColumn}`, [row]);
   return { success: true, id, fmsId };
 }
 
@@ -287,20 +307,23 @@ export async function updateFmsCandidate(
   const current = all.find((c) => c.id === id || c.fmsId === id);
   if (!current) return { success: false };
 
-  const merged: FmsCandidate = {
-    ...current,
-    ...updates,
-    stages: { ...current.stages, ...(updates.stages || {}) },
-    stageData: { ...current.stageData, ...(updates.stageData || {}) },
-    personalDetails: { ...current.personalDetails, ...(updates.personalDetails || {}) },
-    updatedAt: new Date().toISOString(),
-  };
-
-  const updatedRow = candidateToFmsRow(merged, current);
-  await updateFmsValues(
-    `${CANDIDATE_FMS_TAB}!A${targetRowIndex}:${CANDIDATE_FMS_LAST_COLUMN}${targetRowIndex}`,
-    [updatedRow]
+  const now = new Date().toISOString();
+  // Status changes stamp the stage's Actual date; compared against the row as saved in the sheet.
+  const merged: FmsCandidate = applyStatusDates(
+    {
+      ...current,
+      ...updates,
+      stages: { ...current.stages, ...(updates.stages || {}) },
+      stageData: { ...current.stageData, ...(updates.stageData || {}) },
+      personalDetails: { ...current.personalDetails, ...(updates.personalDetails || {}) },
+      updatedAt: now,
+    },
+    current,
+    now.slice(0, 10)
   );
+
+  const { row: updatedRow, lastColumn } = await candidateRowForSheet(merged, current);
+  await updateFmsValues(`${CANDIDATE_FMS_TAB}!A${targetRowIndex}:${lastColumn}${targetRowIndex}`, [updatedRow]);
   return { success: true };
 }
 
