@@ -12,6 +12,11 @@ import {
   type JoinerSchedule,
   type ScheduledJoinerCheck,
 } from "@/lib/joiner-checks-rules";
+import { pickIcpForPosition } from "@/lib/cv-screening";
+import type { PositionKit, PositionKitRecord } from "@/lib/position-kit";
+
+// Which Position Kit field describes each check's test.
+const KIT_TEST: Record<string, keyof PositionKit> = { day1: "day1Test", day6: "day6Test", week2: "week2Test", month1: "month1Test" };
 
 const field = "w-full h-10 px-3 bg-white border border-borderline rounded-md text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500";
 const area = "w-full px-3 py-2 bg-white border border-borderline rounded-md text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 resize-y";
@@ -32,6 +37,14 @@ export function JoinerChecksSection() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [editing, setEditing] = useState<Editing | null>(null);
+  const [kits, setKits] = useState<PositionKitRecord[]>([]);
+
+  useEffect(() => {
+    fetch("/api/recruitment/icp")
+      .then((r) => r.json())
+      .then((json) => setKits(json.data || []))
+      .catch(() => setKits([]));
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -165,6 +178,7 @@ export function JoinerChecksSection() {
       {editing && (
         <RecordCheckModal
           editing={editing}
+          kits={kits}
           onClose={() => setEditing(null)}
           onSaved={() => {
             setEditing(null);
@@ -177,14 +191,26 @@ export function JoinerChecksSection() {
   );
 }
 
-function RecordCheckModal({ editing, onClose, onSaved }: { editing: Editing; onClose: () => void; onSaved: () => void }) {
+function RecordCheckModal({
+  editing,
+  kits,
+  onClose,
+  onSaved,
+}: {
+  editing: Editing;
+  kits: PositionKitRecord[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
   const { joiner, check } = editing;
+  const kit = pickIcpForPosition(kits, joiner.employee.designation) as PositionKitRecord | null;
+  const kitTest = kit?.kit?.[KIT_TEST[check.check]] || "";
   const existing = check.record;
   const today = getTodayLocalIsoDate();
   const [completedOn, setCompletedOn] = useState(existing?.completedOn || (check.dueDate <= today ? today : ""));
   const [result, setResult] = useState(existing?.result || "");
   const [score, setScore] = useState(existing?.score || "");
-  const [testUsed, setTestUsed] = useState(existing?.testUsed || "");
+  const [testUsed, setTestUsed] = useState(existing?.testUsed || (kitTest ? `${kit!.roleName} kit v${kit!.version} – ${check.label} test` : ""));
   const [managerFeedback, setManagerFeedback] = useState(existing?.managerFeedback || "");
   const [evaluatedBy, setEvaluatedBy] = useState(existing?.evaluatedBy || joiner.employee.manager || "");
   const [notes, setNotes] = useState(existing?.notes || "");
@@ -240,6 +266,17 @@ function RecordCheckModal({ editing, onClose, onSaved }: { editing: Editing; onC
       }
     >
       <form id="joiner-check-form" onSubmit={handleSubmit} className="space-y-4">
+        {kitTest ? (
+          <div className="p-3 rounded-md bg-indigo-50 border border-indigo-100">
+            <p className="text-xs font-semibold text-indigo-900 mb-1">{check.label} test for {kit!.roleName} (Position Kit)</p>
+            <p className="text-xs text-slate-700 whitespace-pre-wrap">{kitTest}</p>
+          </div>
+        ) : (
+          <p className="text-xs text-muted">
+            {kit ? `The ${kit.roleName} Position Kit has no ${check.label} test yet.` : `No Position Kit matches "${joiner.employee.designation}".`}{" "}
+            Add it in Recruitment → Position Kits so every joiner in this role gets the same test.
+          </p>
+        )}
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className={label}>Completed on *</label>

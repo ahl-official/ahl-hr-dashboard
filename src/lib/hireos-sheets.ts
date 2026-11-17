@@ -1,6 +1,7 @@
 import "server-only";
 
 import { googleRequest } from "./google-auth";
+import { ICP_MASTER_HEADERS, icpMasterRow, parseIcpMasterRow, type PositionKitRecord } from "./position-kit.ts";
 
 const SHEETS_BASE = "https://sheets.googleapis.com/v4/spreadsheets";
 
@@ -294,51 +295,9 @@ export async function submitCandidateTest(payload: {
 // 2. IDEAL CANDIDATE PROFILES (ICPs)
 // ==========================================
 
-export async function getAllICPs() {
-  const rows = await getHireOSValues("ICP_Master!A2:G");
-  if (!rows.length) {
-    // Seed default sample ICPs if empty
-    const samples = [
-      [
-        "ICP_AI_DEV_001",
-        "AI Developer",
-        "active",
-        "1.0",
-        "# IDEAL CANDIDATE PROFILE – AI DEVELOPER\n\n## 1. BASIC ROLE DETAILS\n- Role Name: AI Developer\n- Department: Engineering\n\n## 2. MAIN PURPOSE\nBuild and optimize LLM workflows, fine-tuning, and RAG pipelines.\n\n## 7. SKILLS REQUIRED\n- Python\n- OpenAI & OpenRouter\n- Next.js & TypeScript\n- Vector DBs",
-        new Date().toISOString(),
-        new Date().toISOString(),
-      ],
-      [
-        "ICP_CRM_EXEC_001",
-        "CRM Executive",
-        "active",
-        "1.0",
-        "# IDEAL CANDIDATE PROFILE – CRM EXECUTIVE\n\n## 1. BASIC ROLE DETAILS\n- Role Name: CRM Executive\n- Department: Marketing & Sales\n\n## 2. MAIN PURPOSE\nManage client retention, WhatsApp workflows, and CRM database accuracy.\n\n## 7. SKILLS REQUIRED\n- HubSpot / Zoho CRM\n- Excel & Data Hygiene\n- Customer Retention Strategies",
-        new Date().toISOString(),
-        new Date().toISOString(),
-      ],
-    ];
-    await appendHireOSValues("ICP_Master!A:G", samples);
-    return samples.map((r) => ({
-      icpId: r[0],
-      roleName: r[1],
-      status: r[2],
-      version: r[3],
-      icpContent: r[4],
-      createdAt: r[5],
-      updatedAt: r[6],
-    }));
-  }
-
-  return rows.map((r) => ({
-    icpId: String(r[0] || ""),
-    roleName: String(r[1] || ""),
-    status: String(r[2] || "active"),
-    version: String(r[3] || "1.0"),
-    icpContent: String(r[4] || ""),
-    createdAt: String(r[5] || ""),
-    updatedAt: String(r[6] || ""),
-  }));
+export async function getAllICPs(): Promise<PositionKitRecord[]> {
+  const rows = await getHireOSValues("ICP_Master!A2:K");
+  return rows.map(parseIcpMasterRow).filter((r) => r.icpId);
 }
 
 export async function getActiveICPs() {
@@ -346,34 +305,24 @@ export async function getActiveICPs() {
   return all.filter((i) => i.status.toLowerCase() === "active");
 }
 
-export async function saveICP(data: {
-  icpId?: string;
-  roleName: string;
-  status: string;
-  version?: string;
-  icpContent: string;
-}) {
-  const now = new Date().toISOString();
-  const isNew = !data.icpId;
-  const icpId =
-    data.icpId ||
-    `ICP_${data.roleName.replace(/[^a-zA-Z0-9]/g, "_").toUpperCase()}_${Date.now().toString(36)}`;
-
-  if (isNew) {
-    const row = [icpId, data.roleName, data.status || "active", data.version || "1.0", data.icpContent, now, now];
-    await appendHireOSValues("ICP_Master!A:G", [row]);
-    return { icpId, ...data, createdAt: now, updatedAt: now };
-  } else {
-    const rows = await getHireOSValues("ICP_Master!A:A");
-    const idx = rows.findIndex((r) => String(r[0]) === data.icpId) + 1;
-    if (idx > 1) {
-      await updateHireOSValues(`ICP_Master!B${idx}:E${idx}`, [
-        [data.roleName, data.status, data.version || "1.0", data.icpContent],
-      ]);
-      await updateHireOSValues(`ICP_Master!G${idx}`, [[now]]);
-    }
-    return { icpId: data.icpId, ...data, updatedAt: now };
+/** Inserts or replaces one Position Kit row (columns A:K of ICP_Master). */
+export async function savePositionKit(record: PositionKitRecord): Promise<PositionKitRecord> {
+  const header = (await getHireOSValues("ICP_Master!A1:K1"))[0] || [];
+  if (header.length < ICP_MASTER_HEADERS.length) {
+    // Older sheets only have A:G; label the kit and approval columns.
+    await updateHireOSValues("ICP_Master!A1:K1", [ICP_MASTER_HEADERS]);
   }
+  const rec = record.icpId
+    ? record
+    : { ...record, icpId: `ICP_${record.roleName.replace(/[^a-zA-Z0-9]/g, "_").toUpperCase()}_${Date.now().toString(36)}` };
+  const ids = await getHireOSValues("ICP_Master!A:A");
+  const rowNumber = ids.findIndex((r) => String(r[0] ?? "") === rec.icpId) + 1;
+  if (rowNumber > 1) {
+    await updateHireOSValues(`ICP_Master!A${rowNumber}:K${rowNumber}`, [icpMasterRow(rec)]);
+  } else {
+    await appendHireOSValues("ICP_Master!A:K", [icpMasterRow(rec)]);
+  }
+  return rec;
 }
 
 // ==========================================

@@ -1,14 +1,15 @@
 "use client";
 
 import React, { useState } from "react";
-import { Briefcase, Users, GitFork, Calendar, Plus } from "lucide-react";
+import { Briefcase, Users, GitFork, Calendar, Plus, BookOpen } from "lucide-react";
 import RequisitionsTab from "@/components/recruitment/RequisitionsTab";
 import CandidateApplicationsTab from "@/components/recruitment/CandidateApplicationsTab";
 import CandidatePipelineTab from "@/components/recruitment/CandidatePipelineTab";
 import TodayInterviewsTab from "@/components/recruitment/TodayInterviewsTab";
+import PositionKitsTab from "@/components/recruitment/PositionKitsTab";
 import type { FmsRequisition } from "@/types/fms";
 
-type RecruitmentTabType = "requisitions" | "candidates" | "pipeline" | "interviews";
+type RecruitmentTabType = "requisitions" | "kits" | "candidates" | "pipeline" | "interviews";
 
 export default function RecruitmentPage() {
   const [activeTab, setActiveTab] = useState<RecruitmentTabType>("requisitions");
@@ -52,6 +53,19 @@ export default function RecruitmentPage() {
             >
               18
             </span>
+          </button>
+
+          {/* Position Kits: ICP, tests and approval per position (SOP steps 1 and 8) */}
+          <button
+            onClick={() => setActiveTab("kits")}
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+              activeTab === "kits"
+                ? "bg-primary text-white shadow-xs"
+                : "text-muted hover:text-navy hover:bg-canvas"
+            }`}
+          >
+            <BookOpen className="w-3.5 h-3.5" />
+            <span>Position Kits</span>
           </button>
 
           {/* Tab 2: Candidate Applications & Intake */}
@@ -143,6 +157,8 @@ export default function RecruitmentPage() {
           onAddCandidateForReq={handleAddCandidateForReq}
         />
       )}
+
+      {activeTab === "kits" && <PositionKitsTab />}
 
       {activeTab === "candidates" && (
         <CandidateApplicationsTab

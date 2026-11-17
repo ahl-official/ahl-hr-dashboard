@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { CheckCircle2, ChevronDown, ChevronRight, ClipboardList, Loader2 } from "lucide-react";
 import type { FmsCandidate } from "@/types/fms";
 import { getTodayLocalIsoDate } from "@/lib/date-utils";
@@ -11,7 +11,16 @@ import {
   interviewSheetUpdate,
   type InterviewSheet,
 } from "@/lib/interview-sheet";
-import type { CvScreeningReport } from "@/lib/cv-screening";
+import { pickIcpForPosition, type CvScreeningReport } from "@/lib/cv-screening";
+import { kitLines, type PositionKitRecord } from "@/lib/position-kit";
+
+type QA = { question: string; answer: string };
+
+/** Answers already given stay; questions that are new (e.g. from a newer kit or screening) are added. */
+const mergeQuestions = (kept: QA[], fresh: string[]): QA[] => [
+  ...kept,
+  ...fresh.filter((q) => !kept.some((k) => k.question === q)).map((question) => ({ question, answer: "" })),
+];
 
 const area =
   "w-full px-2.5 py-1.5 bg-white border border-borderline rounded-md text-xs focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 resize-y";
@@ -34,10 +43,12 @@ export function InterviewSheetBadge({ candidate }: { candidate: FmsCandidate }) 
 
 export function InterviewSheetPanel({
   candidate,
+  roleTitles,
   defaultOpen,
   onSaved,
 }: {
   candidate: FmsCandidate;
+  roleTitles: string[];
   defaultOpen: boolean;
   onSaved: (candidate: FmsCandidate) => void;
 }) {
@@ -45,12 +56,28 @@ export function InterviewSheetPanel({
   const screening = candidate.stageData?.ar?.cvScreening as CvScreeningReport | undefined;
   const [open, setOpen] = useState(defaultOpen);
   const [answers, setAnswers] = useState<InterviewSheet["answers"]>(saved?.answers || {});
-  // Keep answers already given; add any CV questions from a newer screening.
-  const [cvQuestions, setCvQuestions] = useState<InterviewSheet["cvQuestions"]>(() => {
-    const kept = saved?.cvQuestions || [];
-    const fresh = (screening?.interviewQuestions || []).filter((q) => !kept.some((k) => k.question === q));
-    return [...kept, ...fresh.map((question) => ({ question, answer: "" }))];
-  });
+  const [cvQuestions, setCvQuestions] = useState<QA[]>(() => mergeQuestions(saved?.cvQuestions || [], screening?.interviewQuestions || []));
+  const [roleQuestions, setRoleQuestions] = useState<QA[]>(saved?.roleQuestions || []);
+  const [kitName, setKitName] = useState("");
+
+  // Role-specific questions come from the position's Position Kit.
+  const titlesKey = roleTitles.join("|");
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/recruitment/icp")
+      .then((r) => r.json())
+      .then((json) => {
+        if (cancelled) return;
+        const kit = pickIcpForPosition((json.data || []) as PositionKitRecord[], ...titlesKey.split("|")) as PositionKitRecord | null;
+        if (!kit) return;
+        setKitName(kit.roleName);
+        setRoleQuestions((list) => mergeQuestions(list, kitLines(kit.kit?.interviewQuestions || "")));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [titlesKey]);
   const [interviewer, setInterviewer] = useState(saved?.interviewer || "");
   const [conductedOn, setConductedOn] = useState(saved?.conductedOn || getTodayLocalIsoDate());
   const [saving, setSaving] = useState(false);
@@ -62,7 +89,14 @@ export function InterviewSheetPanel({
     setSaving(true);
     setMessage(null);
     try {
-      const sheet: InterviewSheet = { answers, cvQuestions, interviewer: interviewer.trim(), conductedOn, updatedAt: new Date().toISOString() };
+      const sheet: InterviewSheet = {
+        answers,
+        cvQuestions,
+        roleQuestions,
+        interviewer: interviewer.trim(),
+        conductedOn,
+        updatedAt: new Date().toISOString(),
+      };
       const res = await fetch("/api/recruitment/candidates-fms", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -120,6 +154,26 @@ export function InterviewSheetPanel({
               </div>
             ))}
           </div>
+
+          {roleQuestions.length > 0 && (
+            <div className="space-y-2.5">
+              <h5 className="text-[10px] font-bold uppercase tracking-wider text-muted">
+                Role questions{kitName ? ` (${kitName} Position Kit)` : ""}
+              </h5>
+              {roleQuestions.map((q, i) => (
+                <div key={i}>
+                  <label className="block text-[11px] font-semibold text-navy mb-1">{q.question}</label>
+                  <textarea
+                    rows={2}
+                    value={q.answer}
+                    onChange={(e) => setRoleQuestions((list) => list.map((item, j) => (j === i ? { ...item, answer: e.target.value } : item)))}
+                    maxLength={2000}
+                    className={area}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
 
           <div className="space-y-2.5">
             <h5 className="text-[10px] font-bold uppercase tracking-wider text-muted">Questions from the CV screening</h5>

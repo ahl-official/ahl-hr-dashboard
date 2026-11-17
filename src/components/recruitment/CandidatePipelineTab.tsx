@@ -215,6 +215,11 @@ export default function CandidatePipelineTab({
     setFieldFormValues({ ...existing });
   };
 
+  // Position titles used to find the selected candidate's Position Kit
+  const selectedRoleTitles = selectedCand
+    ? [selectedCand.position || "", requisitions.find((r) => r.id === selectedCand.requisitionId)?.jobTitle || ""]
+    : [];
+
   // Replace the optimistic copy with the saved one, which carries server-stamped Actual dates.
   const syncSavedCandidate = (saved?: FmsCandidate) => {
     if (!saved?.id) return;
@@ -1600,13 +1605,11 @@ export default function CandidatePipelineTab({
               {/* SOP steps 2-3: AI CV screening and the telephonic interview sheet */}
               <CvScreeningPanel
                 candidate={selectedCand}
-                roleTitles={[
-                  selectedCand.position || "",
-                  requisitions.find((r) => r.id === selectedCand.requisitionId)?.jobTitle || "",
-                ]}
+                roleTitles={selectedRoleTitles}
                 onUpdated={syncSavedCandidate}
               />
               <InterviewSheetPanel
+                roleTitles={selectedRoleTitles}
                 key={`${selectedCand.id}:${getCvScreening(selectedCand)?.screenedAt || ""}`}
                 candidate={selectedCand}
                 defaultOpen={getStageMeta(selectedCand.currentStage).id === "ps"}

@@ -102,7 +102,9 @@ export function CvScreeningPanel({
           {list("Missing skills", report.missingSkills, "text-amber-700")}
           {list("Red flags", report.redFlags, "text-rose-700")}
           <p className="text-[10px] text-muted border-t border-borderline pt-2">
-            {report.icpRole ? `Checked against ICP "${report.icpRole}" v${report.icpVersion || "1"}` : "No ICP was available — checked against the role details only"}
+            {report.icpRole
+              ? `Checked against ICP "${report.icpRole}" v${report.icpVersion || "1"}${report.icpApproved === false ? " (draft, not approved)" : ""}`
+              : "No ICP was available — checked against the role details only"}
             {" · "}
             {report.cvSource === "pdf" ? report.cvFileName || "PDF" : "pasted text"}
             {" · "}
@@ -211,10 +213,17 @@ function ScreenCvModal({
               </option>
             ))}
           </select>
+          {usedIcp && usedIcp.approval !== "Approved" && (
+            <p className="mt-1.5 flex items-start gap-1.5 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-2.5 py-1.5">
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+              The &quot;{usedIcp.roleName}&quot; Position Kit is still a draft. The SOP asks for the department head&apos;s approval
+              before recruiting — approve it in Recruitment → Position Kits.
+            </p>
+          )}
           {!usedIcp && (
             <p className="mt-1.5 flex items-start gap-1.5 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-2.5 py-1.5">
               <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-              No approved ICP matches this position. The SOP asks for one before recruiting — create it in AI Tests → ICP, or pick
+              No approved ICP matches this position. The SOP asks for one before recruiting — create it in Recruitment → Position Kits, or pick
               one above. Without it the AI checks against the requisition details only.
             </p>
           )}

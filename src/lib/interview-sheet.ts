@@ -22,6 +22,8 @@ export type InterviewSheet = {
   answers: Partial<Record<StandardQuestionKey, string>>;
   /** Questions from the AI CV screening, with what the candidate said. */
   cvQuestions: Array<{ question: string; answer: string }>;
+  /** Role-specific questions from the position's Position Kit, with answers. */
+  roleQuestions?: Array<{ question: string; answer: string }>;
   interviewer: string;
   conductedOn: string; // YYYY-MM-DD
   updatedAt: string;

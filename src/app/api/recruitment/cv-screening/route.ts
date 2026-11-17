@@ -77,6 +77,7 @@ export async function POST(req: Request) {
       icpId: icp?.icpId || "",
       icpRole: icp?.roleName || "",
       icpVersion: icp?.version || "",
+      icpApproved: icp?.approval === "Approved",
       cvSource,
       cvFileName,
       screenedAt: new Date().toISOString(),

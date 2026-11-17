@@ -1,6 +1,9 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { KitStatusChip } from "./PositionKitsTab";
+import { pickIcpForPosition } from "@/lib/cv-screening";
+import type { PositionKitRecord } from "@/lib/position-kit";
 import {
   Briefcase,
   Plus,
@@ -115,6 +118,15 @@ export default function RequisitionsTab({
   const [formSkills, setFormSkills] = useState("");
   const [formDescription, setFormDescription] = useState("");
   const [formNotes, setFormNotes] = useState("");
+
+  const [kits, setKits] = useState<PositionKitRecord[]>([]);
+  useEffect(() => {
+    fetch("/api/recruitment/icp")
+      .then((r) => r.json())
+      .then((json) => setKits(json.data || []))
+      .catch(() => setKits([]));
+  }, []);
+  const kitFor = (title: string) => pickIcpForPosition(kits, title) as PositionKitRecord | null;
 
   const fetchRequisitions = async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -565,6 +577,9 @@ export default function RequisitionsTab({
                   <h3 className="text-base font-bold text-navy group-hover:text-primary transition-colors leading-snug">
                     {req.jobTitle}
                   </h3>
+                  <div className="mt-1">
+                    <KitStatusChip kit={kitFor(req.jobTitle)} />
+                  </div>
                   <div className="flex items-center gap-2 text-xs text-muted mt-1">
                     <Building className="w-3.5 h-3.5 shrink-0" />
                     <span className="font-medium text-slate-700">{req.department}</span>
@@ -688,7 +703,10 @@ export default function RequisitionsTab({
                   <tr key={req.id} className="hover:bg-slate-50/70 transition-colors">
                     <td className="py-3.5 px-4 font-mono font-bold text-primary">{req.id}</td>
                     <td className="py-3.5 px-4">
-                      <div className="font-bold text-navy">{req.jobTitle}</div>
+                      <div className="font-bold text-navy flex items-center gap-2 flex-wrap">
+                        {req.jobTitle}
+                        <KitStatusChip kit={kitFor(req.jobTitle)} />
+                      </div>
                       <div className="text-[10px] text-muted uppercase font-semibold">
                         {req.brand === "alchamae" ? "Alchemane" : "American Hairline"}
                       </div>

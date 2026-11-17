@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createHireOSCandidate } from "@/lib/hireos-sheets";
+import { createHireOSCandidate, getAllICPs } from "@/lib/hireos-sheets";
 import { generateTestQuestionsWithAI } from "@/lib/hireos-ai";
 
 export async function POST(req: Request) {
@@ -15,8 +15,14 @@ export async function POST(req: Request) {
       timeLimit = 15,
       customQuestions = [],
       mustCheckSkills = "",
-      icpContent = "",
+      icpId = "",
     } = body;
+    // The page sends the chosen Position Kit; its ICP text shapes the questions and rubrics.
+    let icpContent = String(body.icpContent || "");
+    if (icpId) {
+      const kit = (await getAllICPs()).find((i) => i.icpId === icpId);
+      if (kit) icpContent = kit.icpContent;
+    }
 
     if (!name || !mobile || !position) {
       return NextResponse.json(

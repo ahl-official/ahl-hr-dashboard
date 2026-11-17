@@ -17,12 +17,14 @@ export type CvScreeningReport = {
   icpId: string;
   icpRole: string;
   icpVersion: string;
+  /** False when the profile used was still a draft the department head had not approved. */
+  icpApproved?: boolean;
   cvSource: "pdf" | "text";
   cvFileName: string;
   screenedAt: string;
 };
 
-export type IcpOption = { icpId: string; roleName: string; status: string; version: string; icpContent: string };
+export type IcpOption = { icpId: string; roleName: string; status: string; version: string; icpContent: string; approval?: string };
 
 export type ScreeningRoleContext = {
   position: string;
@@ -51,8 +53,9 @@ const words = (s: string) =>
   );
 
 /**
- * The active ICP whose role name best matches the position: exact name first, then the most shared words.
- * Returns null when nothing matches, so HR is told to create or pick one instead of using the wrong profile.
+ * The active ICP whose role name best matches the position: exact name first, then the most shared words,
+ * with an approved profile winning a tie. Returns null when nothing matches, so HR is told to create or pick
+ * one instead of using the wrong profile.
  */
 export function pickIcpForPosition(icps: IcpOption[], ...titles: Array<string | undefined>): IcpOption | null {
   const active = icps.filter((i) => (i.status || "active").toLowerCase() === "active" && i.roleName.trim());
@@ -61,12 +64,19 @@ export function pickIcpForPosition(icps: IcpOption[], ...titles: Array<string | 
     const exact = active.find((i) => i.roleName.trim().toLowerCase() === name);
     if (exact) return exact;
   }
+  // A partial match must be a whole-title subset ("CRM" ↔ "CRM Executive"); a single shared word
+  // is not enough, or "Hair Stylist" would get the "Hair Technician" profile.
   let best: { icp: IcpOption; score: number } | null = null;
   for (const icp of active) {
     const icpWords = words(icp.roleName);
+    const bonus = icp.approval === "Approved" ? 0.5 : 0;
     for (const name of names) {
-      const score = [...words(name)].filter((w) => icpWords.has(w)).length;
-      if (score > 0 && (!best || score > best.score)) best = { icp, score };
+      const nameWords = words(name);
+      if (!nameWords.size || !icpWords.size) continue;
+      const subset = [...nameWords].every((w) => icpWords.has(w)) || [...icpWords].every((w) => nameWords.has(w));
+      if (!subset) continue;
+      const score = [...nameWords].filter((w) => icpWords.has(w)).length + bonus;
+      if (!best || score > best.score) best = { icp, score };
     }
   }
   return best?.icp ?? null;
@@ -84,7 +94,7 @@ export function buildCvScreeningMessages(candidateName: string, cvText: string, 
   ].filter(Boolean);
 
   const icpBlock = role.icp
-    ? `IDEAL CANDIDATE PROFILE (approved, version ${role.icp.version || "1"}):\n${role.icp.icpContent.slice(0, 5000)}`
+    ? `IDEAL CANDIDATE PROFILE (${role.icp.approval === "Approved" ? "approved" : "draft, not yet approved"}, version ${role.icp.version || "1"}):\n${role.icp.icpContent.slice(0, 5000)}`
     : "No Ideal Candidate Profile is available for this role. Judge against the role details only, and say so in the summary.";
 
   return [
@@ -118,7 +128,7 @@ const strings = (v: unknown, max = 8): string[] =>
     : [];
 
 /** Validates the model's JSON. Throws when it is unusable, so a broken answer is never saved as a report. */
-export function parseCvScreeningResponse(content: string): Omit<CvScreeningReport, "icpId" | "icpRole" | "icpVersion" | "cvSource" | "cvFileName" | "screenedAt"> {
+export function parseCvScreeningResponse(content: string): Omit<CvScreeningReport, "icpId" | "icpRole" | "icpVersion" | "icpApproved" | "cvSource" | "cvFileName" | "screenedAt"> {
   let raw: any;
   try {
     raw = JSON.parse(content);

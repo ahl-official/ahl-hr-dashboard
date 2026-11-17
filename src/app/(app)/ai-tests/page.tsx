@@ -28,7 +28,8 @@ import {
   Plus,
   HelpCircle,
 } from "lucide-react";
-import IcpTab from "@/components/recruitment/IcpTab";
+import PositionKitsTab from "@/components/recruitment/PositionKitsTab";
+import { kitLines } from "@/lib/position-kit";
 import AudioReviewTab from "@/components/recruitment/AudioReviewTab";
 import PersonalityAssessmentSection from "@/components/recruitment/PersonalityAssessmentSection";
 import EmployeeDiscTab from "@/components/recruitment/EmployeeDiscTab";
@@ -134,7 +135,7 @@ export default function AiTestsPage() {
       const res = await fetch("/api/recruitment/icp");
       const json = await res.json();
       if (json.success && json.data) {
-        setActiveICPs(json.data.filter((i: any) => i.status === "Active"));
+        setActiveICPs(json.data.filter((i: any) => (i.status || "active").toLowerCase() === "active"));
       }
     } catch (e) {
       console.error(e);
@@ -431,10 +432,10 @@ export default function AiTestsPage() {
                     value={selectedIcpId}
                     onChange={(e) => {
                       setSelectedIcpId(e.target.value);
-                      const chosen = activeICPs.find((i) => i.id === e.target.value);
+                      const chosen = activeICPs.find((i) => i.icpId === e.target.value);
                       if (chosen) {
-                        setFormPosition(chosen.roleTitle);
-                        setMustCheckSkills(chosen.coreSkills);
+                        setFormPosition(chosen.roleName);
+                        setMustCheckSkills(kitLines(chosen.kit?.mustHaveSkills || "").join(", "));
                       }
                     }}
                     required
@@ -442,8 +443,8 @@ export default function AiTestsPage() {
                   >
                     <option value="">-- Choose an Active ICP --</option>
                     {activeICPs.map((icp) => (
-                      <option key={icp.id} value={icp.id}>
-                        {icp.roleTitle} ({icp.experienceYears} yrs)
+                      <option key={icp.icpId} value={icp.icpId}>
+                        {icp.roleName} (v{icp.version}, {icp.approval === "Approved" ? "approved" : "draft"})
                       </option>
                     ))}
                   </select>
@@ -697,7 +698,7 @@ export default function AiTestsPage() {
       {/* ────────────────────────────────────────────────────────── */}
       {/* TAB 2: IDEAL CANDIDATE PROFILES (ICPs) */}
       {/* ────────────────────────────────────────────────────────── */}
-      {activeTab === "icp" && <IcpTab />}
+      {activeTab === "icp" && <PositionKitsTab />}
 
       {/* ────────────────────────────────────────────────────────── */}
       {/* TAB 3: CANDIDATE RESULTS & RECORDS */}
