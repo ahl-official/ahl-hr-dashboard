@@ -1,6 +1,7 @@
 // Pure reminder rules: what should HR be told today? No I/O, so it is unit-tested.
 import type { EmployeeSummary, MeetingRecord } from "@/types";
 import { calculateBirthdays, calculateMilestones, daysBetween, formatLocalIsoDate, parseIsoDate, startOfDay } from "./date-utils.ts";
+import { buildJoinerSchedule, joinerCheckReminders, type JoinerCheckRecord } from "./joiner-checks-rules.ts";
 
 export type Reminder = {
   id: string; // stable, for future de-duplication
@@ -10,7 +11,11 @@ export type Reminder = {
 
 const clip = (s: string, n = 90) => (s.length > n ? s.slice(0, n - 1).trimEnd() + "..." : s);
 
-export function buildReminders(employees: EmployeeSummary[], meetings: MeetingRecord[]): Reminder[] {
+export function buildReminders(
+  employees: EmployeeSummary[],
+  meetings: MeetingRecord[],
+  joinerChecks: JoinerCheckRecord[] = []
+): Reminder[] {
   const today = startOfDay(new Date());
   const todayIso = formatLocalIsoDate(today);
   const active = employees.filter((e) => e.employmentStatus === "Active");
@@ -43,6 +48,9 @@ export function buildReminders(employees: EmployeeSummary[], meetings: MeetingRe
       out.push({ id: `overdue:${m.meetingId}:${todayIso}`, when: "overdue", text: `${m.employeeName} - ${late} ${late === 1 ? "day" : "days"} overdue: ${clip(m.actionTaken || m.discussionNotes || "follow-up")}` });
     }
   }
+
+  // New-joiner checks (Day 1 / Day 6 / 2 Weeks / 1 Month) until each one is recorded
+  out.push(...joinerCheckReminders(buildJoinerSchedule(active, joinerChecks)));
   return out;
 }
 

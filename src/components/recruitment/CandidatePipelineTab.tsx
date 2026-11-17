@@ -43,6 +43,9 @@ import { CANONICAL_DEPARTMENTS, COMPANIES } from "@/lib/constants";
 import { CreatableSelect } from "@/components/ui/CreatableSelect";
 import Link from "next/navigation";
 import FmsReportModal from "./FmsReportModal";
+import { CvScreeningBadge, CvScreeningPanel, getCvScreening } from "./CvScreeningPanel";
+import { InterviewSheetBadge, InterviewSheetPanel } from "./InterviewSheetPanel";
+import { getInterviewSheet, interviewSheetProgress } from "@/lib/interview-sheet";
 
 interface CandidatePipelineTabProps {
   initialRequisitionId?: string;
@@ -320,6 +323,18 @@ export default function CandidatePipelineTab({
   // Advance Candidate Stage
   const handleAdvanceStage = async () => {
     if (!selectedCand) return;
+    // SOP: every telephonic interview covers the standard questions.
+    if (getStageMeta(selectedCand.currentStage).id === "ps") {
+      const progress = interviewSheetProgress(getInterviewSheet(selectedCand));
+      if (
+        !progress.complete &&
+        !window.confirm(
+          `${progress.total - progress.answered} standard interview questions are unanswered:\n\n- ${progress.missing.join("\n- ")}\n\nMove ${selectedCand.fullName} to the next stage anyway?`
+        )
+      ) {
+        return;
+      }
+    }
     setAdvancing(true);
     setAdvanceError("");
 
@@ -1019,6 +1034,14 @@ export default function CandidatePipelineTab({
                               </div>
                             )}
 
+                            {/* AI CV match and interview sheet progress */}
+                            {(getCvScreening(cand) || stage.id === "ps") && (
+                              <div className="mt-1.5 flex flex-wrap gap-1">
+                                <CvScreeningBadge candidate={cand} />
+                                {stage.id === "ps" && <InterviewSheetBadge candidate={cand} />}
+                              </div>
+                            )}
+
                             {/* SLA Delay Badge */}
                             <div className="mt-2.5 flex items-center justify-between">
                               <span
@@ -1573,6 +1596,22 @@ export default function CandidatePipelineTab({
                   </div>
                 );
               })()}
+
+              {/* SOP steps 2-3: AI CV screening and the telephonic interview sheet */}
+              <CvScreeningPanel
+                candidate={selectedCand}
+                roleTitles={[
+                  selectedCand.position || "",
+                  requisitions.find((r) => r.id === selectedCand.requisitionId)?.jobTitle || "",
+                ]}
+                onUpdated={syncSavedCandidate}
+              />
+              <InterviewSheetPanel
+                key={`${selectedCand.id}:${getCvScreening(selectedCand)?.screenedAt || ""}`}
+                candidate={selectedCand}
+                defaultOpen={getStageMeta(selectedCand.currentStage).id === "ps"}
+                onSaved={syncSavedCandidate}
+              />
 
               {/* Stage 1: Application Status Selector */}
               {(() => {

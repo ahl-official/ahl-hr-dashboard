@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAllEmployees, getAllMeetings } from "@/lib/store";
 import { buildDigest, buildReminders } from "@/lib/reminders";
+import { loadJoinerCheckRecords } from "@/lib/joiner-checks-store";
 import { istParts, teamMeetingReminders, toIso } from "@/lib/meeting-reminders";
 import { appendLog, hrDigestSentTo, loadConfig } from "@/lib/meeting-reminders-store";
 import { hrDigestId } from "@/lib/hr-digest";
@@ -25,8 +26,8 @@ async function run(req: NextRequest) {
   if (!cfg.recipients.length) return NextResponse.json({ success: false, error: "No recipients configured" }, { status: 400 });
 
   try {
-    const [employees, meetings] = await Promise.all([getAllEmployees(), getAllMeetings()]);
-    const items = buildReminders(employees, meetings);
+    const [employees, meetings, joinerChecks] = await Promise.all([getAllEmployees(), getAllMeetings(), loadJoinerCheckRecords()]);
+    const items = buildReminders(employees, meetings, joinerChecks);
     try {
       // the monthly team meeting is part of what HR is reminded about (a sheet hiccup must not block the rest)
       items.push(...teamMeetingReminders(Date.now(), (await loadConfig()).schedule));

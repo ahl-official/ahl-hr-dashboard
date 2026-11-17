@@ -13,6 +13,7 @@ import {
   UserCheck,
   Briefcase,
   Sparkles,
+  ClipboardCheck,
   type LucideIcon,
 } from "lucide-react";
 
@@ -65,6 +66,7 @@ export function Shell({
       items: [
         { id: "records", label: "HR Records", icon: FileText, badge: recordsCount > 0 ? `${recordsCount}` : undefined },
         { id: "recruitment", label: "Recruitment", icon: Briefcase },
+        { id: "joiner-checks", label: "Joiner Checks", icon: ClipboardCheck },
         { id: "ai-tests", label: "AI Tests", icon: Sparkles },
         { id: "insights", label: "Insights", icon: BarChart3 },
       ],
@@ -72,7 +74,7 @@ export function Shell({
   ];
 
   // Mobile bottom bar: the four most-used destinations
-  const bottomNav = [...groups[0].items, ...groups[1].items];
+  const bottomNav = [...groups[0].items, ...groups[1].items].filter((item) => item.id !== "joiner-checks");
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

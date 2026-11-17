@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAllEmployees, getAllMeetings } from "@/lib/store";
 import { buildDigest, buildReminders } from "@/lib/reminders";
+import { loadJoinerCheckRecords } from "@/lib/joiner-checks-store";
 import { teamMeetingReminders } from "@/lib/meeting-reminders";
 import { loadConfig } from "@/lib/meeting-reminders-store";
 import { reminderConfig } from "@/lib/waha";
@@ -10,8 +11,8 @@ export const dynamic = "force-dynamic";
 /** Shows what would be sent right now. Never sends anything. */
 export async function GET() {
   try {
-    const [employees, meetings] = await Promise.all([getAllEmployees(), getAllMeetings()]);
-    const items = buildReminders(employees, meetings);
+    const [employees, meetings, joinerChecks] = await Promise.all([getAllEmployees(), getAllMeetings(), loadJoinerCheckRecords()]);
+    const items = buildReminders(employees, meetings, joinerChecks);
     try {
       // the monthly team meeting is part of what HR is reminded about (a sheet hiccup must not block the rest)
       items.push(...teamMeetingReminders(Date.now(), (await loadConfig()).schedule));

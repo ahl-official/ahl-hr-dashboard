@@ -1,4 +1,5 @@
 import "server-only";
+import { buildCvScreeningMessages, parseCvScreeningResponse, type ScreeningRoleContext } from "./cv-screening.ts";
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY || "";
 
@@ -285,4 +286,34 @@ export async function generateAudioReviewWithAI(params: {
     recommendation: "Proceed to final HR manager interview round.",
     finalVerdict: "Proceed",
   };
+}
+
+/**
+ * Screens a CV against the role's ICP. Unlike the helpers above there is no canned fallback:
+ * a made-up verdict on a real candidate is worse than a clear error.
+ */
+export async function screenCvWithAI(
+  candidateName: string,
+  cvText: string,
+  role: ScreeningRoleContext
+): Promise<ReturnType<typeof parseCvScreeningResponse>> {
+  if (!OPENROUTER_API_KEY) {
+    throw new Error("AI is not configured: set OPENROUTER_API_KEY (or OPENAI_API_KEY) to screen CVs.");
+  }
+  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "openai/gpt-4o-mini",
+      messages: buildCvScreeningMessages(candidateName, cvText, role),
+      response_format: { type: "json_object" },
+      temperature: 0.2,
+    }),
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`AI screening failed (${res.status}). ${detail.slice(0, 200)}`.trim());
+  }
+  const data = await res.json();
+  return parseCvScreeningResponse(String(data.choices?.[0]?.message?.content || ""));
 }
