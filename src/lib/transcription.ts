@@ -181,3 +181,78 @@ export async function transcribeAudio(
     "No Speech-to-Text API key configured. Please set ASSEMBLYAI_API_KEY (from HireOS) or OPENAI_API_KEY in your .env file, or use in-browser Voice Dictation."
   );
 }
+
+// ── Background jobs (interview recording analysis) ─────────────────────────
+// Starting a job and checking on it are separate requests, so long calls never hit the serverless time limit
+// and a recording given as a link is fetched by AssemblyAI directly instead of passing through this server.
+
+export type TranscriptionJob =
+  | { status: "processing" }
+  | { status: "completed"; transcript: string; model: string; durationSeconds?: number }
+  | { status: "error"; error: string };
+
+function assemblyKey(): string {
+  const key = (process.env.ASSEMBLYAI_API_KEY || "").trim();
+  if (!key) throw new Error("Transcription is not configured: set ASSEMBLYAI_API_KEY.");
+  return key;
+}
+
+/** Starts transcription of uploaded bytes or of a public audio URL. Returns the AssemblyAI job id. */
+export async function startTranscriptionJob(source: { bytes: Uint8Array<ArrayBuffer> } | { audioUrl: string }): Promise<string> {
+  const key = assemblyKey();
+  let audioUrl: string;
+  if ("bytes" in source) {
+    const up = await fetch("https://api.assemblyai.com/v2/upload", {
+      method: "POST",
+      headers: { Authorization: key, "Content-Type": "application/octet-stream" },
+      body: source.bytes,
+    });
+    if (!up.ok) throw new Error(`Recording upload failed (${up.status}): ${(await up.text()).slice(0, 200)}`);
+    audioUrl = (await up.json()).upload_url;
+  } else {
+    audioUrl = source.audioUrl;
+  }
+
+  const res = await fetch("https://api.assemblyai.com/v2/transcript", {
+    method: "POST",
+    headers: { Authorization: key, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      audio_url: audioUrl,
+      // Calls are often in Hindi, English or both: detect the language, fall back to the multilingual model,
+      // and label speakers so the interviewer and the candidate can be told apart.
+      speech_models: ["universal-3-pro", "universal-2"],
+      language_detection: true,
+      speaker_labels: true,
+    }),
+  });
+  if (!res.ok) throw new Error(`Transcription request failed (${res.status}): ${(await res.text()).slice(0, 200)}`);
+  return String((await res.json()).id);
+}
+
+export async function getTranscriptionJob(id: string): Promise<TranscriptionJob> {
+  const key = assemblyKey();
+  const res = await fetch(`https://api.assemblyai.com/v2/transcript/${encodeURIComponent(id)}`, { headers: { Authorization: key } });
+  if (!res.ok) return { status: "error", error: `Could not check the transcription (${res.status}).` };
+  const data = await res.json();
+  if (data.status === "error") {
+    const reason = String(data.error || "Unknown error");
+    return {
+      status: "error",
+      error: /download|fetch|access|url/i.test(reason)
+        ? `The recording could not be downloaded. If it is a Google Drive link, set sharing to "Anyone with the link". (${reason})`
+        : `Transcription failed: ${reason}`,
+    };
+  }
+  if (data.status !== "completed") return { status: "processing" };
+
+  const utterances: Array<{ speaker: string; text: string }> = Array.isArray(data.utterances) ? data.utterances : [];
+  const transcript = utterances.length
+    ? utterances.map((u) => `Speaker ${u.speaker}: ${String(u.text || "").trim()}`).join("\n")
+    : String(data.text || "").trim();
+  return {
+    status: "completed",
+    transcript,
+    model: `AssemblyAI (${data.speech_model_used || data.speech_model || "universal"}${data.language_code ? `, ${data.language_code}` : ""})`,
+    durationSeconds: data.audio_duration,
+  };
+}

@@ -45,6 +45,7 @@ import Link from "next/navigation";
 import FmsReportModal from "./FmsReportModal";
 import { CvScreeningBadge, CvScreeningPanel, getCvScreening } from "./CvScreeningPanel";
 import { InterviewSheetBadge, InterviewSheetPanel } from "./InterviewSheetPanel";
+import { InterviewAnalysisPanel, getInterviewAnalysis } from "./InterviewAnalysisPanel";
 import { getInterviewSheet, interviewSheetProgress } from "@/lib/interview-sheet";
 
 interface CandidatePipelineTabProps {
@@ -1610,11 +1611,12 @@ export default function CandidatePipelineTab({
               />
               <InterviewSheetPanel
                 roleTitles={selectedRoleTitles}
-                key={`${selectedCand.id}:${getCvScreening(selectedCand)?.screenedAt || ""}`}
+                key={`${selectedCand.id}:${getCvScreening(selectedCand)?.screenedAt || ""}:${getInterviewAnalysis(selectedCand)?.analyzedAt || ""}`}
                 candidate={selectedCand}
                 defaultOpen={getStageMeta(selectedCand.currentStage).id === "ps"}
                 onSaved={syncSavedCandidate}
               />
+              <InterviewAnalysisPanel candidate={selectedCand} onUpdated={syncSavedCandidate} />
 
               {/* Stage 1: Application Status Selector */}
               {(() => {

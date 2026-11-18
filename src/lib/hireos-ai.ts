@@ -1,5 +1,6 @@
 import "server-only";
 import { buildCvScreeningMessages, parseCvScreeningResponse, type ScreeningRoleContext } from "./cv-screening.ts";
+import { buildInterviewAnalysisMessages, parseInterviewAnalysisResponse, type AnalysisContext } from "./interview-analysis.ts";
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY || "";
 
@@ -316,4 +317,27 @@ export async function screenCvWithAI(
   }
   const data = await res.json();
   return parseCvScreeningResponse(String(data.choices?.[0]?.message?.content || ""));
+}
+
+/** Analyses a telephonic interview transcript (SOP step 5). No canned fallback, like CV screening. */
+export async function analyzeInterviewWithAI(transcript: string, ctx: AnalysisContext) {
+  if (!OPENROUTER_API_KEY) {
+    throw new Error("AI is not configured: set OPENROUTER_API_KEY (or OPENAI_API_KEY) to analyse interviews.");
+  }
+  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "openai/gpt-4o-mini",
+      messages: buildInterviewAnalysisMessages(transcript, ctx),
+      response_format: { type: "json_object" },
+      temperature: 0.2,
+    }),
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`AI interview analysis failed (${res.status}). ${detail.slice(0, 200)}`.trim());
+  }
+  const data = await res.json();
+  return parseInterviewAnalysisResponse(String(data.choices?.[0]?.message?.content || ""), ctx.extraQuestions);
 }
