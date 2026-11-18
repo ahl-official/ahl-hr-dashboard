@@ -67,6 +67,17 @@ test("the AI answer is normalised: all 11 questions in SOP order, extra question
   assert.deepEqual(analysisCoverage(parsed).asked, 2);
   assert.equal(analysisCoverage(parsed).notAsked.length, 9);
 
+  // Items sent as objects are turned into readable text, never "[object Object]".
+  const objects = parseInterviewAnalysisResponse(
+    JSON.stringify({
+      summary: "x",
+      recommendation: "Hold",
+      contradictions: [{ issue: "Expected salary", detail: "Said ₹40,000; application says ₹30,000" }, { n: 1 }, "Plain text"],
+    }),
+    []
+  );
+  assert.deepEqual(objects.contradictions, ["Expected salary — Said ₹40,000; application says ₹30,000", "Plain text"]);
+
   assert.throws(() => parseInterviewAnalysisResponse("nope", []), /unreadable/);
   assert.throws(() => parseInterviewAnalysisResponse(JSON.stringify({ summary: "x", recommendation: "Maybe" }), []), /missing/);
 });

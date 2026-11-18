@@ -83,7 +83,9 @@ export function buildInterviewAnalysisMessages(transcript: string, ctx: Analysis
         "You review telephonic interview recordings for a hair, beauty and aesthetics company in Mumbai (salons in Khar West). " +
         "The transcript may mix Hindi and English and may label speakers (Speaker A/B); work out which speaker is the candidate. " +
         "Only report what was actually said. A standard question counts as asked only if the interviewer asked it or the candidate " +
-        "clearly answered it; otherwise asked=false and answer=\"\". Keep answers short and factual, in English. " +
+        "clearly answered it; otherwise asked=false and answer=\"\". Each answer is the fact itself, in English, not a quote of " +
+        "the candidate's sentence: e.g. \"₹40,000 per month\", \"15 days\", \"Borivali\", \"1 December\". " +
+        "Each list item (contradictions, weak answers, etc.) is one plain-text string. " +
         "List contradictions between what the candidate said and what is already known (CV, application, earlier answers), and " +
         "within the call itself. Return ONLY a JSON object with keys: summary (2-3 sentences), recommendation (\"Proceed\" | " +
         "\"Hold\" | \"Reject\"), recommendationReason (string), standardQuestions (array of {key, asked, answer} for every key " +
@@ -100,8 +102,16 @@ export function buildInterviewAnalysisMessages(transcript: string, ctx: Analysis
   ];
 }
 
-const strings = (v: unknown, max = 10): string[] =>
-  Array.isArray(v) ? v.map((x) => String(x ?? "").trim()).filter(Boolean).slice(0, max) : [];
+/** List items may come back as objects ({ issue, detail }) instead of text; join their text parts. */
+const itemText = (x: unknown): string =>
+  x && typeof x === "object"
+    ? Object.values(x as Record<string, unknown>)
+        .filter((v) => typeof v === "string" && v.trim())
+        .map((v) => (v as string).trim())
+        .join(" — ")
+    : String(x ?? "").trim();
+
+const strings = (v: unknown, max = 10): string[] => (Array.isArray(v) ? v.map(itemText).filter(Boolean).slice(0, max) : []);
 
 /** Validates the model's JSON; throws when unusable so a broken answer is never saved. */
 export function parseInterviewAnalysisResponse(content: string, extraQuestions: string[]) {
