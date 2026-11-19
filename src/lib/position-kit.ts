@@ -23,6 +23,9 @@ export type PositionKit = {
   qualifyingTest: string;
   qualifyingTestLink: string;
   assessmentInstructions: string;
+  // SOP step 4 — work samples for creative and skill-based positions
+  workSamplesRequired: string; // "yes" or ""
+  workSampleTypes: string; // what to ask for, e.g. "2 edited reels and 1 long-form video"
   // SOP step 9 — tests after joining
   day1Test: string;
   day6Test: string;
@@ -64,6 +67,8 @@ export const emptyKit = (): PositionKit => ({
   qualifyingTest: "",
   qualifyingTestLink: "",
   assessmentInstructions: "",
+  workSamplesRequired: "",
+  workSampleTypes: "",
   day1Test: "",
   day6Test: "",
   week2Test: "",

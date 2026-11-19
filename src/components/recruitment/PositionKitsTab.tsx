@@ -25,6 +25,7 @@ const PLACEHOLDERS: Partial<Record<keyof PositionKit, string>> = {
   redFlags: "One per line, e.g. more than 3 jobs in 2 years",
   rejectionCriteria: "One per line",
   salaryRange: "e.g. ₹25,000–35,000 per month + incentives",
+  workSampleTypes: "e.g. 2 edited reels and 1 long-form video",
 };
 
 const MULTILINE = new Set<keyof PositionKit>([
@@ -293,6 +294,18 @@ export default function PositionKitsTab() {
             </div>
             {Field({ k: "qualifyingTest", label: "Qualifying test — what the candidate must do", rows: 3 })}
             {Field({ k: "assessmentInstructions", label: "Assessment instructions — how to run and score it", rows: 3 })}
+            <div className="grid grid-cols-1 sm:grid-cols-[14rem_1fr] gap-3 items-start">
+              <label className="flex items-center gap-2 pt-6 text-[11px] font-semibold text-navy">
+                <input
+                  type="checkbox"
+                  checked={kit.workSamplesRequired === "yes"}
+                  onChange={(e) => set("workSamplesRequired", e.target.checked ? "yes" : "")}
+                  className="w-4 h-4 rounded border-slate-300 text-indigo-600"
+                />
+                Work samples required (2–3)
+              </label>
+              {Field({ k: "workSampleTypes", label: "Which work samples to ask for" })}
+            </div>
           </Section>
 
           <Section title="3. Tests after joining" hint="SOP step 9. Shown to HR when recording that check on the Joiner Checks page.">

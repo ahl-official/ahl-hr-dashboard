@@ -46,6 +46,12 @@ import FmsReportModal from "./FmsReportModal";
 import { CvScreeningBadge, CvScreeningPanel, getCvScreening } from "./CvScreeningPanel";
 import { InterviewSheetBadge, InterviewSheetPanel } from "./InterviewSheetPanel";
 import { InterviewAnalysisPanel, getInterviewAnalysis } from "./InterviewAnalysisPanel";
+import { WorkSamplesBadge, WorkSamplesPanel } from "./WorkSamplesPanel";
+import { QualifyingTestBadge, QualifyingTestPanel } from "./QualifyingTestPanel";
+import { getQualifyingTest, qualifyingTestWarning } from "@/lib/qualifying-test";
+import { getWorkSamples, samplesRequired, workSampleProgress } from "@/lib/work-samples";
+import { pickIcpForPosition } from "@/lib/cv-screening";
+import type { PositionKitRecord } from "@/lib/position-kit";
 import { getInterviewSheet, interviewSheetProgress } from "@/lib/interview-sheet";
 
 interface CandidatePipelineTabProps {
@@ -61,6 +67,16 @@ export default function CandidatePipelineTab({
 }: CandidatePipelineTabProps) {
   const [candidates, setCandidates] = useState<FmsCandidate[]>([]);
   const [requisitions, setRequisitions] = useState<FmsRequisition[]>([]);
+  // Position Kits, to know which positions require work samples
+  const [kits, setKits] = useState<PositionKitRecord[]>([]);
+  useEffect(() => {
+    fetch("/api/recruitment/icp")
+      .then((r) => r.json())
+      .then((json) => setKits(json.data || []))
+      .catch(() => setKits([]));
+  }, []);
+  const kitForCandidate = (c: FmsCandidate) =>
+    pickIcpForPosition(kits, c.position, requisitions.find((r) => r.id === c.requisitionId)?.jobTitle) as PositionKitRecord | null;
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
@@ -338,6 +354,22 @@ export default function CandidatePipelineTab({
           `${progress.total - progress.answered} standard interview questions are unanswered:\n\n- ${progress.missing.join("\n- ")}\n\nMove ${selectedCand.fullName} to the next stage anyway?`
         )
       ) {
+        return;
+      }
+      // SOP: creative and skill-based roles need 2–3 work samples before moving on.
+      const kit = kitForCandidate(selectedCand);
+      const samples = workSampleProgress(getWorkSamples(selectedCand), samplesRequired(kit?.kit));
+      if (
+        !samples.complete &&
+        !window.confirm(
+          `The ${kit?.roleName} Position Kit asks for at least ${samples.min} work samples; ${selectedCand.fullName} has ${samples.count}.\n\nMove to the next stage anyway?`
+        )
+      ) {
+        return;
+      }
+      // SOP: every position has its own qualifying test.
+      const testWarning = qualifyingTestWarning(getQualifyingTest(selectedCand), Boolean(kit?.kit?.qualifyingTest));
+      if (testWarning && !window.confirm(`${selectedCand.fullName} ${testWarning}.\n\nMove to the next stage anyway?`)) {
         return;
       }
     }
@@ -1045,6 +1077,8 @@ export default function CandidatePipelineTab({
                               <div className="mt-1.5 flex flex-wrap gap-1">
                                 <CvScreeningBadge candidate={cand} />
                                 {stage.id === "ps" && <InterviewSheetBadge candidate={cand} />}
+                                {stage.id === "ps" && <WorkSamplesBadge candidate={cand} required={samplesRequired(kitForCandidate(cand)?.kit)} />}
+                                {stage.id === "ps" && <QualifyingTestBadge candidate={cand} kitHasTest={Boolean(kitForCandidate(cand)?.kit?.qualifyingTest)} />}
                               </div>
                             )}
 
@@ -1617,6 +1651,18 @@ export default function CandidatePipelineTab({
                 onSaved={syncSavedCandidate}
               />
               <InterviewAnalysisPanel candidate={selectedCand} onUpdated={syncSavedCandidate} />
+              <WorkSamplesPanel
+                candidate={selectedCand}
+                required={samplesRequired(kitForCandidate(selectedCand)?.kit)}
+                sampleTypes={kitForCandidate(selectedCand)?.kit?.workSampleTypes || ""}
+                onSaved={syncSavedCandidate}
+              />
+              <QualifyingTestPanel
+                key={`test:${selectedCand.id}:${kitForCandidate(selectedCand)?.icpId || ""}`}
+                candidate={selectedCand}
+                kit={kitForCandidate(selectedCand)}
+                onSaved={syncSavedCandidate}
+              />
 
               {/* Stage 1: Application Status Selector */}
               {(() => {
