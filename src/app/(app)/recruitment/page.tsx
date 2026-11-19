@@ -1,15 +1,16 @@
 "use client";
 
 import React, { useState } from "react";
-import { Briefcase, Users, GitFork, Calendar, Plus, BookOpen } from "lucide-react";
+import { Briefcase, Users, GitFork, Calendar, Plus, BookOpen, ShieldCheck } from "lucide-react";
 import RequisitionsTab from "@/components/recruitment/RequisitionsTab";
 import CandidateApplicationsTab from "@/components/recruitment/CandidateApplicationsTab";
 import CandidatePipelineTab from "@/components/recruitment/CandidatePipelineTab";
 import TodayInterviewsTab from "@/components/recruitment/TodayInterviewsTab";
 import PositionKitsTab from "@/components/recruitment/PositionKitsTab";
+import SopComplianceTab from "@/components/recruitment/SopComplianceTab";
 import type { FmsRequisition } from "@/types/fms";
 
-type RecruitmentTabType = "requisitions" | "kits" | "candidates" | "pipeline" | "interviews";
+type RecruitmentTabType = "requisitions" | "kits" | "candidates" | "pipeline" | "interviews" | "compliance";
 
 export default function RecruitmentPage() {
   const [activeTab, setActiveTab] = useState<RecruitmentTabType>("requisitions");
@@ -130,6 +131,18 @@ export default function RecruitmentPage() {
               5
             </span>
           </button>
+          {/* SOP compliance across all candidates */}
+          <button
+            onClick={() => setActiveTab("compliance")}
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+              activeTab === "compliance"
+                ? "bg-primary text-white shadow-xs"
+                : "text-muted hover:text-navy hover:bg-canvas"
+            }`}
+          >
+            <ShieldCheck className="w-3.5 h-3.5" />
+            <span>SOP Compliance</span>
+          </button>
         </div>
 
         {/* Quick Action Button */}
@@ -159,6 +172,8 @@ export default function RecruitmentPage() {
       )}
 
       {activeTab === "kits" && <PositionKitsTab />}
+
+      {activeTab === "compliance" && <SopComplianceTab />}
 
       {activeTab === "candidates" && (
         <CandidateApplicationsTab

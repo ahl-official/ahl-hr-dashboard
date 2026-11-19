@@ -8,9 +8,12 @@ import {
   getCustomReportPeriod,
   getFmsReportPeriods,
   listReportHrNames,
+  normalizeHrName,
   reportFileName,
   type FmsReportKind,
 } from "@/lib/fms-report";
+import { buildComplianceRows, buildReportCompliance, positionsWithoutApprovedKit } from "@/lib/sop-compliance";
+import type { PositionKitRecord } from "@/lib/position-kit";
 
 function localToday(): string {
   const now = new Date();
@@ -22,6 +25,7 @@ function localToday(): string {
 export default function FmsReportModal({ onClose }: { onClose: () => void }) {
   const [candidates, setCandidates] = useState<FmsCandidate[]>([]);
   const [requisitions, setRequisitions] = useState<FmsRequisition[]>([]);
+  const [kits, setKits] = useState<PositionKitRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
@@ -51,6 +55,9 @@ export default function FmsReportModal({ onClose }: { onClose: () => void }) {
         }
         setCandidates(candJson.data.candidates || []);
         setRequisitions(reqJson.data.requisitions || []);
+        // Position Kits feed the compliance section; the report still downloads without them.
+        const kitJson = await fetch("/api/recruitment/icp").then((r) => r.json()).catch(() => null);
+        if (!cancelled && kitJson?.success) setKits(kitJson.data || []);
       } catch {
         if (!cancelled) setError("Network error loading report data");
       } finally {
@@ -75,6 +82,18 @@ export default function FmsReportModal({ onClose }: { onClose: () => void }) {
   );
   const reversedRange = kind === "custom" && Boolean(customStart && customEnd) && customStart > customEnd;
 
+  // SOP compliance snapshot as of today, limited to the chosen HR's requisitions like the rest of the report.
+  const compliance = useMemo(() => {
+    const scopedReqs = hrName ? requisitions.filter((r) => normalizeHrName(r.recruiterName) === hrName) : requisitions;
+    const reqIds = new Set(scopedReqs.map((r) => r.id));
+    const scopedCandidates = hrName ? candidates.filter((c) => reqIds.has(c.requisitionId || "")) : candidates;
+    return buildReportCompliance(
+      buildComplianceRows(scopedCandidates, kits, requisitions),
+      positionsWithoutApprovedKit(scopedReqs, kits),
+      today
+    );
+  }, [candidates, requisitions, kits, hrName, today]);
+
   // Open the calendar when any part of the field is clicked, not only its icon.
   const openCalendar = (e: React.MouseEvent<HTMLInputElement>) => {
     try {
@@ -90,7 +109,7 @@ export default function FmsReportModal({ onClose }: { onClose: () => void }) {
     setError(null);
     try {
       const { renderFmsReportPdf } = await import("@/lib/fms-report-pdf");
-      renderFmsReportPdf(report).save(reportFileName(report));
+      renderFmsReportPdf(report, compliance).save(reportFileName(report));
     } catch (err) {
       console.error("Report PDF generation failed:", err);
       setError("Could not generate the PDF. Please try again.");

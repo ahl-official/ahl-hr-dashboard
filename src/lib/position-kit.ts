@@ -194,6 +194,10 @@ export function applyKitEdit(
       approvedAt: "",
     };
   }
+  // An older free-text profile saved without filling any kit field (e.g. just deactivated) keeps its text.
+  if (!prev.kit && Object.values(kit).every((v) => !v)) {
+    return { ...prev, roleName, status: edit.status || prev.status, updatedAt: now };
+  }
   const changed = prev.roleName !== roleName || JSON.stringify(prev.kit) !== JSON.stringify(kit);
   const reapprove = changed && prev.approval === "Approved";
   return {

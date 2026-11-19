@@ -1,12 +1,16 @@
 import { jsPDF } from "jspdf";
 import { formatReportPosition, reportTitle } from "./fms-report.ts";
 import type { FmsReport } from "./fms-report.ts";
+import type { ReportCompliance } from "./sop-compliance.ts";
 
 const MARGIN = 20;
 const ROW_HEIGHT = 10;
 
-/** Lays the report out like the coordinator's template: summary table, joined table, position list. */
-export function renderFmsReportPdf(report: FmsReport): jsPDF {
+/**
+ * Lays the report out like the coordinator's template: summary table, joined table, position list, and
+ * (when given) the recruitment SOP compliance snapshot.
+ */
+export function renderFmsReportPdf(report: FmsReport, compliance?: ReportCompliance): jsPDF {
   const doc = new jsPDF("p", "mm", "a4");
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -86,6 +90,50 @@ export function renderFmsReportPdf(report: FmsReport): jsPDF {
     doc.text(lines, MARGIN + 8, y);
     y += lines.length * 5.5 + 1.5;
   });
+
+  if (compliance) {
+    const [yy, mm, dd] = compliance.asOf.split("-");
+    y += 8;
+    ensureRoom(30);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.text(`Process compliance (as of ${dd}/${mm}/${yy})`, MARGIN, y);
+    y += 4;
+    doc.setFontSize(11);
+    drawRow([
+      { text: "Candidates in pipeline", width: labelWidth },
+      { text: String(compliance.inPipeline), width: valueWidth, align: "center" },
+    ]);
+    drawRow([
+      { text: "Past interviews with every SOP step done", width: labelWidth },
+      { text: String(compliance.complete), width: valueWidth, align: "center" },
+    ]);
+    drawRow([
+      { text: "Moved on with SOP steps skipped", width: labelWidth },
+      { text: String(compliance.skipped.length), width: valueWidth, align: "center" },
+    ]);
+    y += 7;
+
+    doc.setFont("helvetica", "normal");
+    const paragraph = (text: string) => {
+      const lines: string[] = doc.splitTextToSize(text, tableWidth - 8);
+      ensureRoom(lines.length * 5.5 + 1.5);
+      doc.text(lines, MARGIN + 8, y);
+      y += lines.length * 5.5 + 1.5;
+    };
+    if (compliance.skipped.length === 0) {
+      paragraph("No candidate has moved past interviews with a step skipped.");
+    }
+    compliance.skipped.forEach((s, i) => {
+      ensureRoom(6);
+      doc.text(`${i + 1}.`, MARGIN, y);
+      paragraph(`${s.name} (${s.position || "no position"}, ${s.stage}) – skipped: ${s.steps.join(", ")}`);
+    });
+    if (compliance.positionsWithoutKit.length) {
+      y += 2;
+      paragraph(`Open positions without an approved Position Kit: ${compliance.positionsWithoutKit.join(", ")}.`);
+    }
+  }
 
   return doc;
 }
