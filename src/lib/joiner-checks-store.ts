@@ -22,6 +22,11 @@ export async function loadJoinerCheckRecords() {
 /** Inserts or replaces the record for one employee's check (one row per Check_ID). */
 export async function saveJoinerCheckRecord(record: JoinerCheckRecord): Promise<JoinerCheckRecord> {
   await ensureSheet(JOINER_CHECKS_TAB, JOINER_CHECKS_HEADERS);
+  // Tabs created before the rating columns existed get the new headers added on the right.
+  const header = (await getValues(`${JOINER_CHECKS_TAB}!1:1`))[0] || [];
+  if (header.length < JOINER_CHECKS_HEADERS.length) {
+    await updateValues(`${JOINER_CHECKS_TAB}!A1:${JOINER_CHECKS_LAST_COLUMN}1`, [JOINER_CHECKS_HEADERS]);
+  }
   const existing = (await loadJoinerCheckRecords()).find((r) => r.checkId === record.checkId);
   const row = joinerCheckToRow(record);
   if (existing) {

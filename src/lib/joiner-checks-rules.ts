@@ -17,13 +17,24 @@ export const JOINER_RESULTS = ["Pass", "Needs Improvement", "Fail"] as const;
 /** Joiners stay on the list until a little after their 1-month check, so a late one is still chased. */
 export const JOINER_WINDOW_DAYS = 45;
 
+/** What the SOP says to check at every post-joining assessment, each rated 1–5. */
+export const JOINER_RATING_AREAS = [
+  { key: "learning", label: "Learning" },
+  { key: "practicalSkills", label: "Practical skills" },
+  { key: "workQuality", label: "Work quality" },
+  { key: "performance", label: "Performance" },
+] as const;
+export type JoinerRatingArea = (typeof JOINER_RATING_AREAS)[number]["key"];
+export type JoinerRatings = Record<JoinerRatingArea, number | null>;
+
 export const JOINER_CHECKS_TAB = "Joiner_Checks";
+// Rating columns are last so rows written before they existed keep their positions.
 export const JOINER_CHECKS_HEADERS = [
   "Check_ID", "Employee_Key", "Employee_ID", "Employee_Name", "Designation", "Department", "Reporting_Manager",
   "DOJ", "Check", "Due_Date", "Completed_On", "Result", "Score", "Test_Used", "Manager_Feedback", "Evaluated_By",
-  "Notes", "Recorded_At",
+  "Notes", "Recorded_At", "Learning", "Practical_Skills", "Work_Quality", "Performance",
 ];
-export const JOINER_CHECKS_LAST_COLUMN = "R";
+export const JOINER_CHECKS_LAST_COLUMN = "V";
 
 export type JoinerCheckRecord = {
   checkId: string;
@@ -44,6 +55,7 @@ export type JoinerCheckRecord = {
   evaluatedBy: string;
   notes: string;
   recordedAt: string;
+  ratings: JoinerRatings;
 };
 
 export type JoinerCheckState = "done" | "due" | "overdue" | "upcoming";
@@ -167,14 +179,37 @@ export function parseJoinerCheckRows(rows: unknown[][]): Array<JoinerCheckRecord
       evaluatedBy: text(r[15]),
       notes: text(r[16]),
       recordedAt: text(r[17]),
+      ratings: {
+        learning: rating(r[18]),
+        practicalSkills: rating(r[19]),
+        workQuality: rating(r[20]),
+        performance: rating(r[21]),
+      },
     }))
     .filter((r) => r.checkId);
 }
 
+/** A 1–5 rating, or null when absent (records saved before ratings existed) or out of range. */
+export function rating(v: unknown): number | null {
+  const n = Number(text(v));
+  return Number.isInteger(n) && n >= 1 && n <= 5 ? n : null;
+}
+
+export const emptyRatings = (): JoinerRatings => ({ learning: null, practicalSkills: null, workQuality: null, performance: null });
+
+/** Average of the given ratings to one decimal, or null when none are set. */
+export function ratingAverage(ratings: JoinerRatings | undefined): number | null {
+  const values = Object.values(ratings || {}).filter((v): v is number => typeof v === "number");
+  return values.length ? Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 10) / 10 : null;
+}
+
 export function joinerCheckToRow(r: JoinerCheckRecord): string[] {
+  const rt = r.ratings || emptyRatings();
+  const out = (v: number | null) => (v === null ? "" : String(v));
   return [
     r.checkId, r.employeeKey, r.employeeId, r.employeeName, r.designation, r.department, r.manager, r.doj, r.check,
     r.dueDate, r.completedOn, r.result, r.score, r.testUsed, r.managerFeedback, r.evaluatedBy, r.notes, r.recordedAt,
+    out(rt.learning), out(rt.practicalSkills), out(rt.workQuality), out(rt.performance),
   ];
 }
 
@@ -184,11 +219,14 @@ export function validateJoinerCheckInput(input: {
   completedOn: string;
   result: string;
   managerFeedback: string;
+  ratings: Partial<Record<JoinerRatingArea, unknown>>;
 }, todayIso: string): string | null {
   if (!JOINER_CHECKS.some((c) => c.id === input.check)) return "Unknown check.";
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.completedOn)) return "Completed date is required.";
   if (input.completedOn > todayIso) return "Completed date cannot be in the future.";
   if (!JOINER_RESULTS.includes(input.result as (typeof JOINER_RESULTS)[number])) return "Choose a result.";
+  const unrated = JOINER_RATING_AREAS.filter((a) => rating(input.ratings?.[a.key]) === null).map((a) => a.label);
+  if (unrated.length) return `Rate ${unrated.join(", ")} from 1 to 5.`;
   if (!input.managerFeedback.trim()) return "Add the reporting manager's feedback.";
   return null;
 }

@@ -6,6 +6,7 @@ import {
   joinerCheckDueDate,
   joinerCheckId,
   validateJoinerCheckInput,
+  rating,
   type JoinerCheckId,
 } from "@/lib/joiner-checks-rules";
 import { getTodayLocalIsoDate } from "@/lib/date-utils";
@@ -35,6 +36,7 @@ export async function POST(req: NextRequest) {
       completedOn: String(body.completedOn || ""),
       result: String(body.result || ""),
       managerFeedback: String(body.managerFeedback || ""),
+      ratings: (body.ratings && typeof body.ratings === "object" ? body.ratings : {}) as Record<string, unknown>,
     };
     const problem = validateJoinerCheckInput(input, getTodayLocalIsoDate());
     if (problem) return NextResponse.json({ success: false, error: problem }, { status: 400 });
@@ -60,6 +62,12 @@ export async function POST(req: NextRequest) {
       managerFeedback: input.managerFeedback.trim(),
       evaluatedBy: String(body.evaluatedBy || "").trim(),
       notes: String(body.notes || "").trim(),
+      ratings: {
+        learning: rating(input.ratings.learning),
+        practicalSkills: rating(input.ratings.practicalSkills),
+        workQuality: rating(input.ratings.workQuality),
+        performance: rating(input.ratings.performance),
+      },
       recordedAt: new Date().toISOString(),
     });
     return NextResponse.json({ success: true, data: record });

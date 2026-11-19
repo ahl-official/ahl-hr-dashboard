@@ -8,6 +8,7 @@ import {
   joinerCheckToRow,
   parseJoinerCheckRows,
   validateJoinerCheckInput,
+  ratingAverage,
   JOINER_CHECKS_HEADERS,
   type JoinerCheckRecord,
 } from "../src/lib/joiner-checks-rules.ts";
@@ -21,7 +22,8 @@ const record = (o: Partial<JoinerCheckRecord>): JoinerCheckRecord => ({
   checkId: "K1:day1", employeeKey: "K1", employeeId: "AHL-0101", employeeName: "Riya Shah", designation: "Sales Consultant",
   department: "Sales", manager: "Neha", doj: "2026-11-10", check: "day1", dueDate: "2026-11-10", completedOn: "2026-11-10",
   result: "Pass", score: "8/10", testUsed: "Product quiz", managerFeedback: "Good start", evaluatedBy: "Neha", notes: "",
-  recordedAt: "2026-11-10T10:00:00.000Z", ...o,
+  recordedAt: "2026-11-10T10:00:00.000Z",
+  ratings: { learning: 4, practicalSkills: 3, workQuality: 5, performance: 4 }, ...o,
 });
 
 test("checks fall on Day 1, Day 6, 2 weeks and 1 month after joining", () => {
@@ -99,11 +101,38 @@ test("sheet rows round-trip, including date serials", () => {
 });
 
 test("recording a check needs a date, a result and manager feedback", () => {
-  const ok = { check: "day1", completedOn: "2026-11-17", result: "Pass", managerFeedback: "Settling in well" };
+  const ok = { check: "day1", completedOn: "2026-11-17", result: "Pass", managerFeedback: "Settling in well", ratings: { learning: 4, practicalSkills: 3, workQuality: 5, performance: 4 } };
   assert.equal(validateJoinerCheckInput(ok, "2026-11-17"), null);
   assert.match(validateJoinerCheckInput({ ...ok, check: "day3" }, "2026-11-17")!, /Unknown check/);
   assert.match(validateJoinerCheckInput({ ...ok, completedOn: "" }, "2026-11-17")!, /date is required/);
   assert.match(validateJoinerCheckInput({ ...ok, completedOn: "2026-11-18" }, "2026-11-17")!, /future/);
   assert.match(validateJoinerCheckInput({ ...ok, result: "Great" }, "2026-11-17")!, /result/);
   assert.match(validateJoinerCheckInput({ ...ok, managerFeedback: " " }, "2026-11-17")!, /feedback/);
+});
+
+test("all four SOP areas must be rated 1-5", () => {
+  const base = { check: "day6", completedOn: "2026-11-17", result: "Pass", managerFeedback: "Good" };
+  const all = { learning: 4, practicalSkills: 3, workQuality: 5, performance: 4 };
+  assert.equal(validateJoinerCheckInput({ ...base, ratings: all }, "2026-11-17"), null);
+  assert.match(validateJoinerCheckInput({ ...base, ratings: {} }, "2026-11-17")!, /Rate Learning, Practical skills, Work quality, Performance from 1 to 5/);
+  assert.match(validateJoinerCheckInput({ ...base, ratings: { ...all, workQuality: 6 } }, "2026-11-17")!, /Rate Work quality/);
+  assert.match(validateJoinerCheckInput({ ...base, ratings: { ...all, performance: 2.5 } }, "2026-11-17")!, /Rate Performance/);
+  assert.equal(validateJoinerCheckInput({ ...base, ratings: { ...all, learning: "5" } }, "2026-11-17"), null, "numbers sent as text are fine");
+});
+
+test("ratings round-trip, rows saved before ratings still load, and the average is shown", () => {
+  const r = record({ ratings: { learning: 4, practicalSkills: 3, workQuality: 5, performance: 4 } });
+  const row = joinerCheckToRow(r);
+  assert.deepEqual(row.slice(-4), ["4", "3", "5", "4"]);
+  assert.deepEqual(parseJoinerCheckRows([JOINER_CHECKS_HEADERS, row])[0].ratings, r.ratings);
+
+  const legacy = row.slice(0, 18); // written when the tab had 18 columns
+  assert.deepEqual(parseJoinerCheckRows([JOINER_CHECKS_HEADERS.slice(0, 18), legacy])[0].ratings, {
+    learning: null, practicalSkills: null, workQuality: null, performance: null,
+  });
+
+  assert.equal(ratingAverage(r.ratings), 4);
+  assert.equal(ratingAverage({ learning: 4, practicalSkills: 3, workQuality: 3, performance: null }), 3.3);
+  assert.equal(ratingAverage({ learning: null, practicalSkills: null, workQuality: null, performance: null }), null);
+  assert.equal(ratingAverage(undefined), null);
 });

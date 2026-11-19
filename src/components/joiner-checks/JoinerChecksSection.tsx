@@ -7,6 +7,10 @@ import { useToast } from "@/components/ui/Toast";
 import { formatDisplayDate, getTodayLocalIsoDate } from "@/lib/date-utils";
 import {
   JOINER_RESULTS,
+  JOINER_RATING_AREAS,
+  emptyRatings,
+  ratingAverage,
+  type JoinerRatings,
   JOINER_WINDOW_DAYS,
   type JoinerCheckState,
   type JoinerSchedule,
@@ -163,7 +167,7 @@ export function JoinerChecksSection() {
                       </div>
                       <div className="text-[11px] mt-1 opacity-80">
                         {check.record?.completedOn
-                          ? `${check.record.result} · ${formatDisplayDate(check.record.completedOn)}`
+                          ? `${check.record.result}${ratingAverage(check.record.ratings) !== null ? ` · ${ratingAverage(check.record.ratings)}/5` : ""} · ${formatDisplayDate(check.record.completedOn)}`
                           : `Due ${formatDisplayDate(check.dueDate)}`}
                       </div>
                     </button>
@@ -214,6 +218,7 @@ function RecordCheckModal({
   const [managerFeedback, setManagerFeedback] = useState(existing?.managerFeedback || "");
   const [evaluatedBy, setEvaluatedBy] = useState(existing?.evaluatedBy || joiner.employee.manager || "");
   const [notes, setNotes] = useState(existing?.notes || "");
+  const [ratings, setRatings] = useState<JoinerRatings>(existing?.ratings || emptyRatings());
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -235,6 +240,7 @@ function RecordCheckModal({
           managerFeedback,
           evaluatedBy,
           notes,
+          ratings,
         }),
       });
       const json = await res.json();
@@ -300,6 +306,36 @@ function RecordCheckModal({
           <div>
             <label className={label}>Score</label>
             <input value={score} onChange={(e) => setScore(e.target.value)} maxLength={30} placeholder="e.g. 8/10" className={field} />
+          </div>
+        </div>
+        <div>
+          <label className={label}>Ratings * (1 = poor, 5 = excellent)</label>
+          <div className="rounded-md border border-borderline divide-y divide-borderline">
+            {JOINER_RATING_AREAS.map((a) => (
+              <div key={a.key} className="flex items-center justify-between gap-3 px-3 py-1.5">
+                <span className="text-xs text-slate-700">{a.label}</span>
+                <div className="flex gap-1">
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => setRatings((r) => ({ ...r, [a.key]: n }))}
+                      className={`w-8 h-7 rounded text-xs font-semibold border ${
+                        ratings[a.key] === n
+                          ? n >= 4
+                            ? "bg-emerald-600 text-white border-emerald-600"
+                            : n === 3
+                              ? "bg-amber-500 text-white border-amber-500"
+                              : "bg-rose-600 text-white border-rose-600"
+                          : "bg-white text-slate-600 border-borderline hover:bg-slate-50"
+                      }`}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
         <div>
