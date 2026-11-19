@@ -48,11 +48,11 @@ import { InterviewSheetBadge, InterviewSheetPanel } from "./InterviewSheetPanel"
 import { InterviewAnalysisPanel, getInterviewAnalysis } from "./InterviewAnalysisPanel";
 import { WorkSamplesBadge, WorkSamplesPanel } from "./WorkSamplesPanel";
 import { QualifyingTestBadge, QualifyingTestPanel } from "./QualifyingTestPanel";
-import { getQualifyingTest, qualifyingTestWarning } from "@/lib/qualifying-test";
-import { getWorkSamples, samplesRequired, workSampleProgress } from "@/lib/work-samples";
+import { FinalEvaluationPanel, HiringDecisionBadge } from "./FinalEvaluationPanel";
+import { advanceWarnings } from "@/lib/final-evaluation";
+import { samplesRequired } from "@/lib/work-samples";
 import { pickIcpForPosition } from "@/lib/cv-screening";
 import type { PositionKitRecord } from "@/lib/position-kit";
-import { getInterviewSheet, interviewSheetProgress } from "@/lib/interview-sheet";
 
 interface CandidatePipelineTabProps {
   initialRequisitionId?: string;
@@ -345,31 +345,13 @@ export default function CandidatePipelineTab({
   // Advance Candidate Stage
   const handleAdvanceStage = async () => {
     if (!selectedCand) return;
-    // SOP: every telephonic interview covers the standard questions.
+    // SOP: no step is skipped before a candidate leaves the interview stage. One combined warning.
     if (getStageMeta(selectedCand.currentStage).id === "ps") {
-      const progress = interviewSheetProgress(getInterviewSheet(selectedCand));
+      const warnings = advanceWarnings(selectedCand, kitForCandidate(selectedCand)?.kit);
       if (
-        !progress.complete &&
-        !window.confirm(
-          `${progress.total - progress.answered} standard interview questions are unanswered:\n\n- ${progress.missing.join("\n- ")}\n\nMove ${selectedCand.fullName} to the next stage anyway?`
-        )
+        warnings.length &&
+        !window.confirm(`Before ${selectedCand.fullName} moves on:\n\n- ${warnings.join("\n- ")}\n\nMove to the next stage anyway?`)
       ) {
-        return;
-      }
-      // SOP: creative and skill-based roles need 2–3 work samples before moving on.
-      const kit = kitForCandidate(selectedCand);
-      const samples = workSampleProgress(getWorkSamples(selectedCand), samplesRequired(kit?.kit));
-      if (
-        !samples.complete &&
-        !window.confirm(
-          `The ${kit?.roleName} Position Kit asks for at least ${samples.min} work samples; ${selectedCand.fullName} has ${samples.count}.\n\nMove to the next stage anyway?`
-        )
-      ) {
-        return;
-      }
-      // SOP: every position has its own qualifying test.
-      const testWarning = qualifyingTestWarning(getQualifyingTest(selectedCand), Boolean(kit?.kit?.qualifyingTest));
-      if (testWarning && !window.confirm(`${selectedCand.fullName} ${testWarning}.\n\nMove to the next stage anyway?`)) {
         return;
       }
     }
@@ -1079,6 +1061,7 @@ export default function CandidatePipelineTab({
                                 {stage.id === "ps" && <InterviewSheetBadge candidate={cand} />}
                                 {stage.id === "ps" && <WorkSamplesBadge candidate={cand} required={samplesRequired(kitForCandidate(cand)?.kit)} />}
                                 {stage.id === "ps" && <QualifyingTestBadge candidate={cand} kitHasTest={Boolean(kitForCandidate(cand)?.kit?.qualifyingTest)} />}
+                                {stage.id === "ps" && <HiringDecisionBadge candidate={cand} />}
                               </div>
                             )}
 
@@ -1662,6 +1645,13 @@ export default function CandidatePipelineTab({
                 candidate={selectedCand}
                 kit={kitForCandidate(selectedCand)}
                 onSaved={syncSavedCandidate}
+              />
+              <FinalEvaluationPanel
+                key={`final:${selectedCand.id}`}
+                candidate={selectedCand}
+                kit={kitForCandidate(selectedCand)}
+                hiringManager={requisitions.find((r) => r.id === selectedCand.requisitionId)?.hiringManager || ""}
+                onUpdated={syncSavedCandidate}
               />
 
               {/* Stage 1: Application Status Selector */}

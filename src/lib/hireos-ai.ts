@@ -1,6 +1,7 @@
 import "server-only";
 import { buildCvScreeningMessages, parseCvScreeningResponse, type ScreeningRoleContext } from "./cv-screening.ts";
 import { buildInterviewAnalysisMessages, parseInterviewAnalysisResponse, type AnalysisContext } from "./interview-analysis.ts";
+import { parseFinalReport, type buildFinalReportMessages } from "./final-evaluation.ts";
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY || "";
 
@@ -340,4 +341,22 @@ export async function analyzeInterviewWithAI(transcript: string, ctx: AnalysisCo
   }
   const data = await res.json();
   return parseInterviewAnalysisResponse(String(data.choices?.[0]?.message?.content || ""), ctx.extraQuestions);
+}
+
+/** Consolidated final evaluation for the hiring manager (SOP step 7). No canned fallback. */
+export async function generateFinalReportWithAI(messages: ReturnType<typeof buildFinalReportMessages>, missing: string[]) {
+  if (!OPENROUTER_API_KEY) {
+    throw new Error("AI is not configured: set OPENROUTER_API_KEY (or OPENAI_API_KEY) to write the final report.");
+  }
+  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ model: "openai/gpt-4o-mini", messages, response_format: { type: "json_object" }, temperature: 0.2 }),
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`AI final report failed (${res.status}). ${detail.slice(0, 200)}`.trim());
+  }
+  const data = await res.json();
+  return parseFinalReport(String(data.choices?.[0]?.message?.content || ""), missing, new Date().toISOString());
 }

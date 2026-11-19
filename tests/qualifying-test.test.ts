@@ -4,7 +4,6 @@ import {
   getQualifyingTest,
   qualifyingTestLabel,
   qualifyingTestUpdate,
-  qualifyingTestWarning,
   validateQualifyingTest,
   type QualifyingTestResult,
 } from "../src/lib/qualifying-test.ts";
@@ -45,18 +44,10 @@ test("a no-show needs only the date", () => {
   assert.match(validateQualifyingTest(done({ status: "No-show", completedOn: "" }), TODAY)!, /did not turn up/);
 });
 
-test("labels and the stage warning", () => {
+test("labels", () => {
   assert.equal(qualifyingTestLabel(null), "Test: not done");
   assert.equal(qualifyingTestLabel(done({ status: "Scheduled", scheduledOn: "2026-11-25" })), "Test: scheduled 2026-11-25");
   assert.equal(qualifyingTestLabel(done({ result: "Borderline" })), "Test: Borderline");
-
-  assert.equal(qualifyingTestWarning(null, false), null, "no warning when the kit has no test");
-  assert.match(qualifyingTestWarning(null, true)!, /has not taken/);
-  assert.match(qualifyingTestWarning(done({ status: "Scheduled" }), true)!, /has not taken/);
-  assert.match(qualifyingTestWarning(done({ status: "No-show" }), true)!, /did not turn up/);
-  assert.match(qualifyingTestWarning(done({ result: "Fail" }), true)!, /failed/);
-  assert.equal(qualifyingTestWarning(done({ result: "Borderline" }), true), null);
-  assert.equal(qualifyingTestWarning(done(), true), null);
 });
 
 test("the result is saved in the candidate's stage data and survives the sheet round trip", () => {

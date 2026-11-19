@@ -48,18 +48,6 @@ export function qualifyingTestLabel(t: QualifyingTestResult | null): string {
   return `Test: ${t.result || "done"}`;
 }
 
-/**
- * What blocks moving past the interview stage without a warning: the kit asks for a test and there is no
- * passing (or borderline) result yet. Returns the warning text, or null.
- */
-export function qualifyingTestWarning(t: QualifyingTestResult | null, kitHasTest: boolean): string | null {
-  if (!kitHasTest) return null;
-  if (!t || t.status === "Scheduled") return "has not taken the qualifying test yet";
-  if (t.status === "No-show") return "did not turn up for the qualifying test";
-  if (t.result === "Fail") return "failed the qualifying test";
-  return null;
-}
-
 export function qualifyingTestUpdate(candidate: Pick<FmsCandidate, "stageData">, result: QualifyingTestResult): Partial<FmsCandidate> {
   return {
     stageData: {
