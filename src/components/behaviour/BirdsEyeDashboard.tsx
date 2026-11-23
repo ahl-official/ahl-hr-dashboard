@@ -21,8 +21,16 @@ import { EmployeeBranch, BehaviourSignal, BirdsEyeSummary } from "@/types/behavi
 
 export function BirdsEyeDashboard() {
   const [selectedMonth, setSelectedMonth] = useState("2026-11");
-  const [summary, setSummary] = useState<BirdsEyeSummary | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [summary, setSummary] = useState<BirdsEyeSummary | null>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = localStorage.getItem("hrms_birds_eye_2026-11");
+        return cached ? JSON.parse(cached) : null;
+      } catch {}
+    }
+    return null;
+  });
+  const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<"all" | "grey" | "red" | "green">("all");
   const [search, setSearch] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("all");
@@ -45,8 +53,13 @@ export function BirdsEyeDashboard() {
     try {
       const res = await fetch(`/api/behaviour/birds-eye?month=${month}`);
       const json = await res.json();
-      if (json.success) {
+      if (json.success && json.data) {
         setSummary(json.data);
+        if (typeof window !== "undefined") {
+          try {
+            localStorage.setItem(`hrms_birds_eye_${month}`, JSON.stringify(json.data));
+          } catch {}
+        }
       }
     } catch (e) {
       console.error("Failed to load bird's-eye view", e);
@@ -56,6 +69,14 @@ export function BirdsEyeDashboard() {
   };
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = localStorage.getItem(`hrms_birds_eye_${selectedMonth}`);
+        if (cached) {
+          setSummary(JSON.parse(cached));
+        }
+      } catch {}
+    }
     loadSummary(selectedMonth);
   }, [selectedMonth]);
 
@@ -171,7 +192,7 @@ export function BirdsEyeDashboard() {
               </h1>
             </div>
             <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-3xl">
-              Monitors attendance anomalies, late arrivals ($\ge$6 threshold), Monday/Friday leaves, and conduct red flags. Built for HR Operations and Vinitt sir.
+              Monitors attendance anomalies, late arrivals (≥ 6 late marks threshold), Monday/Friday leaves, and conduct red flags. Built for HR Operations and Vinitt sir.
             </p>
           </div>
 
@@ -371,14 +392,21 @@ export function BirdsEyeDashboard() {
       </div>
 
       {/* Branches List */}
-      {loading ? (
+      {loading && !summary ? (
         <div className="p-12 text-center text-slate-500 text-sm flex items-center justify-center gap-2">
           <RefreshCw className="w-4 h-4 animate-spin text-indigo-600" />
-          Loading behaviour branches...
+          Loading behaviour branches & syncing live punches...
         </div>
       ) : filteredBranches.length === 0 ? (
         <div className="bg-surface rounded-2xl border border-borderline p-10 text-center text-slate-500 text-xs">
-          No employee branches found matching the current filters for {selectedMonth}.
+          {loading ? (
+            <div className="flex items-center justify-center gap-2">
+              <RefreshCw className="w-4 h-4 animate-spin text-indigo-600" />
+              Syncing live Hazri Box attendance...
+            </div>
+          ) : (
+            `No employee branches found matching the current filters for ${selectedMonth}.`
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

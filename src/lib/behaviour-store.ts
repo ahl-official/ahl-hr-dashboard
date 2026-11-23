@@ -1,3 +1,7 @@
+import fs from "node:fs";
+import path from "node:path";
+import os from "node:os";
+
 import type {
   EmployeeBranch,
   BehaviourEvaluationInput,
@@ -8,6 +12,27 @@ import {
   buildEmployeeWhatsAppMessage,
 } from "./behaviour-rules.ts";
 import { cleanPhoneNumber } from "./whatsapp.ts";
+
+const CACHE_FILE = path.join(os.tmpdir(), "hrms_behaviour_branches.json");
+
+function loadDiskCache(): EmployeeBranch[] {
+  try {
+    if (fs.existsSync(CACHE_FILE)) {
+      const data = fs.readFileSync(CACHE_FILE, "utf8");
+      const parsed = JSON.parse(data);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch {}
+  return [];
+}
+
+function saveDiskCache(branches: EmployeeBranch[]) {
+  try {
+    fs.writeFileSync(CACHE_FILE, JSON.stringify(branches), "utf8");
+  } catch {}
+}
 
 async function dispatchWahaMessage(phone: string, text: string) {
   const base = (process.env.WAHA_BASE_URL || "").replace(/\/+$/, "");
@@ -34,6 +59,15 @@ const initialBranches: EmployeeBranch[] = [];
 
 let branchesStore: EmployeeBranch[] = [...initialBranches];
 
+function ensureStoreLoaded() {
+  if (branchesStore.length === 0) {
+    const fromDisk = loadDiskCache();
+    if (fromDisk.length > 0) {
+      branchesStore = fromDisk;
+    }
+  }
+}
+
 /**
  * List all branches with optional filtering.
  */
@@ -43,6 +77,7 @@ export function getBranchesStore(filters?: {
   status?: string;
   employeeKey?: string;
 }): EmployeeBranch[] {
+  ensureStoreLoaded();
   let list = [...branchesStore];
   if (filters?.month) {
     list = list.filter((b) => b.month === filters.month);
@@ -63,6 +98,7 @@ export function getBranchesStore(filters?: {
  * Get branch by unique ID.
  */
 export function getBranchByIdStore(id: string): EmployeeBranch | null {
+  ensureStoreLoaded();
   return branchesStore.find((b) => b.id === id) || null;
 }
 
@@ -73,17 +109,19 @@ export function getPreviousMonthBranch(
   employeeKey: string,
   currentMonth: string
 ): EmployeeBranch | null {
-  const employeeBranches = branchesStore
-    .filter((b) => b.employeeKey === employeeKey && b.month < currentMonth)
-    .sort((a, b) => b.month.localeCompare(a.month));
-
-  return employeeBranches[0] || null;
+  ensureStoreLoaded();
+  return (
+    branchesStore
+      .filter((b) => b.employeeKey === employeeKey && b.month < currentMonth)
+      .sort((a, b) => b.month.localeCompare(a.month))[0] || null
+  );
 }
 
 /**
  * Evaluate and record a branch for an employee for a specific month.
  */
 export function evaluateAndSaveBranch(input: BehaviourEvaluationInput): EmployeeBranch {
+  ensureStoreLoaded();
   const previousBranch = getPreviousMonthBranch(input.employeeKey, input.month);
   const evaluation = evaluateBranchState(input, previousBranch);
 
@@ -123,6 +161,7 @@ export function evaluateAndSaveBranch(input: BehaviourEvaluationInput): Employee
     branchesStore.unshift(branchRecord);
   }
 
+  saveDiskCache(branchesStore);
   return branchRecord;
 }
 
@@ -130,6 +169,7 @@ export function evaluateAndSaveBranch(input: BehaviourEvaluationInput): Employee
  * Record that HR had a talk with the employee regarding this branch.
  */
 export function recordHrTalkStore(branchId: string, notes: string): EmployeeBranch {
+  ensureStoreLoaded();
   const idx = branchesStore.findIndex((b) => b.id === branchId);
   if (idx === -1) throw new Error(`Branch with ID ${branchId} not found.`);
 
@@ -141,6 +181,7 @@ export function recordHrTalkStore(branchId: string, notes: string): EmployeeBran
     updatedAt: new Date().toISOString(),
   };
 
+  saveDiskCache(branchesStore);
   return branchesStore[idx];
 }
 
@@ -152,6 +193,7 @@ export async function sendMonthlyWhatsAppStore(
   branchId: string,
   options: { force?: boolean } = {}
 ): Promise<{ success: boolean; message: string; branch: EmployeeBranch }> {
+  ensureStoreLoaded();
   const idx = branchesStore.findIndex((b) => b.id === branchId);
   if (idx === -1) throw new Error(`Branch with ID ${branchId} not found.`);
 
@@ -189,6 +231,8 @@ export async function sendMonthlyWhatsAppStore(
     updatedAt: now,
   };
 
+  saveDiskCache(branchesStore);
+
   return {
     success: true,
     message: `WhatsApp monthly report successfully sent to ${branch.employeeName}.`,
@@ -200,6 +244,7 @@ export async function sendMonthlyWhatsAppStore(
  * Generate Bird's-Eye View data grouped by color/status for HR and Vinitt sir.
  */
 export function getBirdsEyeViewStore(month?: string): BirdsEyeSummary {
+  ensureStoreLoaded();
   const currentMonth = month || new Date().toISOString().slice(0, 7);
   const monthBranches = branchesStore.filter((b) => b.month === currentMonth);
 
