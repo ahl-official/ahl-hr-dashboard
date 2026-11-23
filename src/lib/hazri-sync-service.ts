@@ -5,8 +5,8 @@ import os from "node:os";
 import { getHazriEmployees, getHazriLateSummary } from "./hazri-api";
 import { evaluateAndSaveBranch, getBranchesStore } from "./behaviour-store";
 
-// 1-Hour Cooldown between automated background syncs to prevent draining Vercel CPU limits & Hazri Box server
-export const SYNC_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour
+// 24-Hour (1 Day) Cooldown between automated background syncs to prevent draining Vercel CPU limits & Hazri Box server
+export const SYNC_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 hours / 1 day
 
 const SYNC_META_FILE = path.join(os.tmpdir(), "hrms_hazri_sync_meta.json");
 
@@ -30,11 +30,20 @@ const inFlightSyncs: Map<string, Promise<any>> = new Map();
 
 /**
  * Checks whether an automated sync is allowed for a given month,
- * strictly enforcing the 1-hour cooldown to protect Vercel compute limits.
+ * strictly enforcing the 24-hour (1 day) cooldown to protect Vercel compute limits.
+ * For past months, once synced, automated background sync is never re-run.
  */
 export function shouldAutoSyncMonth(monthKey: string): boolean {
   const meta = loadSyncMeta();
   const lastSync = meta[monthKey];
+  const now = new Date();
+  const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
+  // Past months are historical: if synced at least once, never re-sync automatically
+  if (monthKey < currentMonthKey && lastSync) {
+    return false;
+  }
+
   if (!lastSync) return true; // Never synced before
   return Date.now() - lastSync > SYNC_COOLDOWN_MS;
 }

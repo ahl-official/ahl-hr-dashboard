@@ -28,9 +28,9 @@ export async function GET(req: Request) {
       { success: true, data: summary },
       {
         headers: {
-          // Serve from Vercel Edge Cache for 5 mins; revalidate stale in background up to 1 hr
-          // Repeat tab visits are served in 5ms with ZERO serverless execution time / CPU usage
-          "Cache-Control": "public, s-maxage=300, stale-while-revalidate=3600",
+          // Serve from Vercel Edge Cache for 24 hours (1 day); revalidate stale in background up to 7 days
+          // Repeat tab visits across the entire day consume ZERO serverless execution time / CPU usage!
+          "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=604800",
         },
       }
     );

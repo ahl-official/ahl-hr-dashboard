@@ -20,7 +20,30 @@ import {
 import { EmployeeBranch, BehaviourSignal, BirdsEyeSummary } from "@/types/behaviour-tracker";
 
 export function BirdsEyeDashboard() {
+  const currentMonthKey = React.useMemo(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  }, []);
+
   const [selectedMonth, setSelectedMonth] = useState("2026-11");
+
+  const monthOptions = React.useMemo(() => {
+    const list: Array<{ value: string; label: string; isCurrent: boolean }> = [];
+    const now = new Date();
+    // Support 2026-11 plus previous 11 months for historical inspection
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const label = d.toLocaleString("en-US", { month: "long", year: "numeric" });
+      list.push({
+        value: val,
+        label: val === currentMonthKey ? `${label} (Current)` : label,
+        isCurrent: val === currentMonthKey,
+      });
+    }
+    return list;
+  }, [currentMonthKey]);
+
   const [summary, setSummary] = useState<BirdsEyeSummary | null>(() => {
     if (typeof window !== "undefined") {
       try {
@@ -205,9 +228,11 @@ export function BirdsEyeDashboard() {
                 onChange={(e) => setSelectedMonth(e.target.value)}
                 className="bg-transparent text-xs font-bold text-slate-800 outline-none cursor-pointer"
               >
-                <option value="2026-11">November 2026</option>
-                <option value="2026-10">October 2026</option>
-                <option value="2026-09">September 2026</option>
+                {monthOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -215,7 +240,7 @@ export function BirdsEyeDashboard() {
             <button
               onClick={handleSyncHazri}
               disabled={syncingHazri}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition shadow-xs disabled:opacity-50"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition shadow-xs disabled:opacity-50 cursor-pointer"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${syncingHazri ? "animate-spin" : ""}`} />
               <span>{syncingHazri ? "Syncing..." : "Sync Hazri Box"}</span>
@@ -226,6 +251,25 @@ export function BirdsEyeDashboard() {
         {syncMessage && (
           <div className="mt-3 p-2.5 rounded-xl bg-indigo-50 border border-indigo-200 text-xs text-indigo-900 font-medium">
             {syncMessage}
+          </div>
+        )}
+
+        {/* Historical Archive Banner */}
+        {selectedMonth !== currentMonthKey && (
+          <div className="mt-4 p-3 px-4 rounded-xl bg-amber-50 border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-amber-900">
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>
+                Viewing <strong>Historical Archive for {monthOptions.find((m) => m.value === selectedMonth)?.label.replace(" (Current)", "") || selectedMonth}</strong>.
+                Past branch states and HR notes are safely preserved.
+              </span>
+            </div>
+            <button
+              onClick={() => setSelectedMonth(currentMonthKey)}
+              className="text-xs font-bold text-indigo-600 hover:text-indigo-800 underline flex items-center gap-1 shrink-0 cursor-pointer"
+            >
+              Return to Current Month
+            </button>
           </div>
         )}
 
@@ -443,6 +487,11 @@ export function BirdsEyeDashboard() {
                         {branch.employeeId} · {branch.department}
                       </p>
                       <p className="text-[11px] text-indigo-600 font-medium">{branch.company}</p>
+                      {branch.previousBranchId && (
+                        <span className="inline-block mt-1 text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-medium border border-slate-200">
+                          Follow-up from {branch.previousBranchId.split("-").slice(1, 3).join("-")}
+                        </span>
+                      )}
                     </div>
 
                     <span
