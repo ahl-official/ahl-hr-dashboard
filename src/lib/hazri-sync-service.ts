@@ -165,32 +165,12 @@ export async function syncHazriAttendanceForMonth(
       meta[monthKey] = Date.now();
       saveSyncMeta(meta);
 
-      // Automated WhatsApp reports dispatch with 1.2-second safety delay for WAHA
-      let whatsappDispatched = 0;
-      if (options.autoDispatchWhatsApp !== false) {
-        const branchesToSend = getBranchesStore({ month: monthKey }).filter(
-          (b) => !b.whatsappSentAt && b.phone && (b.color === "grey" || b.color === "red")
-        );
-
-        for (const branch of branchesToSend) {
-          try {
-            await sendMonthlyWhatsAppStore(branch.id);
-            whatsappDispatched++;
-          } catch (err: any) {
-            console.warn(`Auto-WhatsApp error for ${branch.employeeName}:`, err?.message);
-          }
-          // 1.2-second safety interval between messages to protect WAHA from rate-limits
-          await new Promise((resolve) => setTimeout(resolve, 1200));
-        }
-      }
-
       return {
         year,
         month,
         monthKey,
         totalEmployees: results.length,
         branchesEvaluated: createdOrUpdatedBranches,
-        whatsappDispatched,
         lateSummary: results,
       };
     } finally {

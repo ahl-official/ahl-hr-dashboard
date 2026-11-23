@@ -61,7 +61,6 @@ export function BirdsEyeDashboard() {
   // Hazri Box sync state
   const [syncingHazri, setSyncingHazri] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
-  const [batchSending, setBatchSending] = useState(false);
 
   // Modals state
   const [activeDossierBranch, setActiveDossierBranch] = useState<EmployeeBranch | null>(null);
@@ -70,13 +69,6 @@ export function BirdsEyeDashboard() {
 
   const [activeWhatsAppBranch, setActiveWhatsAppBranch] = useState<EmployeeBranch | null>(null);
   const [sendingWhatsApp, setSendingWhatsApp] = useState(false);
-
-  // Count un-sent WhatsApp branches for the current view
-  const pendingWhatsAppCount = React.useMemo(() => {
-    if (!summary) return 0;
-    const all = [...summary.branches.grey, ...summary.branches.red];
-    return all.filter((b) => !b.whatsappSentAt && b.phone).length;
-  }, [summary]);
 
   // Fetch Bird's Eye Data
   const loadSummary = async (month: string) => {
@@ -134,40 +126,6 @@ export function BirdsEyeDashboard() {
     } finally {
       setSyncingHazri(false);
       setTimeout(() => setSyncMessage(null), 5000);
-    }
-  };
-
-  // Batch Auto-Dispatch WhatsApp reports with 1.2s delay for WAHA safety
-  const handleBatchDispatchWhatsApp = async () => {
-    if (pendingWhatsAppCount === 0) return;
-    if (
-      !confirm(
-        `Are you sure you want to dispatch monthly WhatsApp reports to all ${pendingWhatsAppCount} employees? Each message will pause 1.2s to safeguard WAHA and WhatsApp limits.`
-      )
-    ) {
-      return;
-    }
-
-    setBatchSending(true);
-    setSyncMessage(`Dispatching ${pendingWhatsAppCount} reports with 1.2s safety interval...`);
-    try {
-      const res = await fetch("/api/behaviour/whatsapp-batch", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ month: selectedMonth }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setSyncMessage(`✅ Dispatched ${data.sent} WhatsApp reports successfully.`);
-        await loadSummary(selectedMonth);
-      } else {
-        setSyncMessage(`Dispatch error: ${data.error}`);
-      }
-    } catch (e: any) {
-      setSyncMessage(`Dispatch failed: ${e.message}`);
-    } finally {
-      setBatchSending(false);
-      setTimeout(() => setSyncMessage(null), 6000);
     }
   };
 
@@ -282,34 +240,32 @@ export function BirdsEyeDashboard() {
             <button
               onClick={handleSyncHazri}
               disabled={syncingHazri}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition shadow-xs disabled:opacity-50 cursor-pointer"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition shadow-xs disabled:opacity-50 cursor-pointer"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${syncingHazri ? "animate-spin" : ""}`} />
               <span>{syncingHazri ? "Syncing..." : "Sync Hazri Box"}</span>
             </button>
-
-            {/* Auto-Dispatch WhatsApp Batch Button */}
-            {pendingWhatsAppCount > 0 && (
-              <button
-                onClick={handleBatchDispatchWhatsApp}
-                disabled={batchSending}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition shadow-xs disabled:opacity-50 cursor-pointer"
-                title="Send monthly punctuality reports to all pending employees with 1.2s delay"
-              >
-                <MessageCircle className={`w-3.5 h-3.5 ${batchSending ? "animate-spin" : ""}`} />
-                <span>
-                  {batchSending
-                    ? "Sending..."
-                    : `Send WhatsApps (${pendingWhatsAppCount} pending)`}
-                </span>
-              </button>
-            )}
           </div>
         </div>
 
         {syncMessage && (
           <div className="mt-3 p-2.5 rounded-xl bg-indigo-50 border border-indigo-200 text-xs text-indigo-900 font-medium">
             {syncMessage}
+          </div>
+        )}
+
+        {/* Current Active Month Status Banner */}
+        {selectedMonth === currentMonthKey && (
+          <div className="mt-4 p-2.5 px-4 rounded-xl bg-slate-50 border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 text-xs text-slate-600">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+              <span>
+                <strong>{monthOptions.find((m) => m.value === selectedMonth)?.label.replace(" (Current)", "") || selectedMonth}</strong> attendance is currently active. Monthly behaviour reports are compiled at month-end.
+              </span>
+            </div>
+            <span className="text-[11px] text-slate-400 font-medium shrink-0">
+              WhatsApp reports are sent at month-end close
+            </span>
           </div>
         )}
 
@@ -854,6 +810,12 @@ export function BirdsEyeDashboard() {
               You are about to dispatch the <strong>Monthly Behaviour Report</strong> to{" "}
               <strong>{activeWhatsAppBranch.employeeName}</strong> ({activeWhatsAppBranch.phone}).
             </p>
+
+            {selectedMonth === currentMonthKey && (
+              <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 text-blue-900 text-[11px] leading-relaxed">
+                ℹ️ <strong>Active Month Notice</strong>: {monthOptions.find((m) => m.value === selectedMonth)?.label.replace(" (Current)", "") || selectedMonth} attendance is currently in progress. Standard company policy compiles and sends monthly reports at <strong>month-end close</strong> once all punches are final.
+              </div>
+            )}
 
             <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-[11px] leading-relaxed">
               ⚠️ <strong>Strict Policy Guard</strong>: Per Task 3 requirements, only{" "}
