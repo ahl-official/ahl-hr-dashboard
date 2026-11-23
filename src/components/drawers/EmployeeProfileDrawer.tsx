@@ -21,6 +21,8 @@ import {
   Sparkles,
   Copy,
   Edit3,
+  GitBranch,
+  Eye,
 } from "lucide-react";
 import { EmployeeSummary, DocumentRecord, MeetingRecord } from "@/types";
 import { initials, formatExactTenure, formatDisplayDate, getTodayLocalIsoDate } from "@/lib/date-utils";
@@ -52,6 +54,7 @@ export function EmployeeProfileDrawer({
   const [loadingDisc, setLoadingDisc] = useState(false);
   const [sendingDisc, setSendingDisc] = useState(false);
   const [copiedDisc, setCopiedDisc] = useState(false);
+  const [branchInfo, setBranchInfo] = useState<any | null>(null);
 
   useEffect(() => {
     if (!employee) return;
@@ -65,6 +68,18 @@ export function EmployeeProfileDrawer({
       })
       .catch(() => setDiscInfo(null))
       .finally(() => setLoadingDisc(false));
+
+    // Fetch active behaviour branch
+    fetch(`/api/behaviour/branches?employeeKey=${encodeURIComponent(employee.employeeKey)}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success && d.branches && d.branches.length > 0) {
+          setBranchInfo(d.branches[0]);
+        } else {
+          setBranchInfo(null);
+        }
+      })
+      .catch(() => setBranchInfo(null));
   }, [employee]);
 
   const handleSendDiscInvite = async () => {
@@ -270,6 +285,76 @@ export function EmployeeProfileDrawer({
               </span>
             </div>
           </div>
+
+          {/* 🌿 BEHAVIOUR & ATTENDANCE BRANCH BANNER (Task 3 State) */}
+          {branchInfo && (
+            <div
+              className={`p-4 rounded-2xl border-2 shadow-sm animate-in fade-in ${
+                branchInfo.color === "red"
+                  ? "bg-rose-50 border-rose-300 text-rose-950"
+                  : branchInfo.color === "green"
+                  ? "bg-emerald-50 border-emerald-300 text-emerald-950"
+                  : "bg-slate-100 border-slate-300 text-slate-900"
+              }`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <div
+                    className={`p-1.5 rounded-lg text-white ${
+                      branchInfo.color === "red"
+                        ? "bg-rose-600"
+                        : branchInfo.color === "green"
+                        ? "bg-emerald-600"
+                        : "bg-slate-700"
+                    }`}
+                  >
+                    <GitBranch className="w-4 h-4" />
+                  </div>
+                  <span className="text-xs font-bold uppercase tracking-wider">
+                    {branchInfo.color === "red" && "🔴 Escalated Branch (Repeat Anomaly)"}
+                    {branchInfo.color === "green" && "🟢 Resolved Branch (Improved)"}
+                    {branchInfo.color === "grey" && "🔘 Observation Branch (Watching)"}
+                  </span>
+                </div>
+                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-white/80 border border-slate-200">
+                  {branchInfo.month}
+                </span>
+              </div>
+
+              {branchInfo.signals && branchInfo.signals.length > 0 ? (
+                <div className="space-y-1.5 mt-2">
+                  {branchInfo.signals.map((sig: any, idx: number) => (
+                    <div
+                      key={idx}
+                      className="p-2 rounded-xl bg-white/90 border border-slate-200 text-xs font-medium"
+                    >
+                      <strong className="block text-slate-900 mb-0.5 font-bold">
+                        • {sig.title} ({sig.occurrences}x)
+                      </strong>
+                      <span className="text-slate-600">{sig.description}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-emerald-800 font-medium mt-1">
+                  Punctuality and leave criteria met. This branch was marked as improved and resolved.
+                </p>
+              )}
+
+              <div className="mt-2.5 pt-2 border-t border-slate-200/80 flex items-center justify-between text-[11px] text-slate-600">
+                <span>
+                  HR Talk:{" "}
+                  <strong>{branchInfo.hrTalkCompleted ? "Completed ✅" : "Pending ⏳"}</strong>
+                </span>
+                <span>
+                  Monthly WhatsApp:{" "}
+                  <strong>
+                    {branchInfo.whatsappSentAt ? `Sent on ${branchInfo.whatsappSentAt.slice(0, 10)} ✅` : "Pending ⏳"}
+                  </strong>
+                </span>
+              </div>
+            </div>
+          )}
 
           {/* 🚩 PROMINENT RED FLAG BANNER (If Active Warning Exists) */}
           {activeRedFlag && (

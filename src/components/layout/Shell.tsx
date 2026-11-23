@@ -14,6 +14,7 @@ import {
   Briefcase,
   Sparkles,
   ClipboardCheck,
+  GitBranch,
   type LucideIcon,
 } from "lucide-react";
 
@@ -65,6 +66,7 @@ export function Shell({
       title: "People Operations",
       items: [
         { id: "records", label: "HR Records", icon: FileText, badge: recordsCount > 0 ? `${recordsCount}` : undefined },
+        { id: "behaviour-tracker", label: "Behaviour Tracker", icon: GitBranch },
         { id: "recruitment", label: "Recruitment", icon: Briefcase },
         { id: "joiner-checks", label: "Joiner Checks", icon: ClipboardCheck },
         { id: "ai-tests", label: "AI Tests", icon: Sparkles },

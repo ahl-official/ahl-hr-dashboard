@@ -19,6 +19,7 @@ const TITLES: Record<string, string> = {
   calendar: "HR Calendar",
   records: "HR Records",
   recruitment: "Recruitment Operations",
+  "behaviour-tracker": "Employee Behaviour & Attendance Tracker",
   "joiner-checks": "New Joiner Checks",
   "ai-tests": "AI Assessments & Tests",
   insights: "Insights",
@@ -30,6 +31,7 @@ const SUBTITLES: Record<string, string> = {
   calendar: "Reviews, meetings, follow-ups and birthdays",
   records: "Meetings, warnings and follow-up records",
   recruitment: "Job requisitions, candidate pipeline, and hiring operations",
+  "behaviour-tracker": "Bird's-eye view tracking attendance anomalies, late marks, and branch status for HR and Vinitt sir",
   "joiner-checks": "Day 1, Day 6, 2 Weeks and 1 Month evaluations after joining",
   "ai-tests": "AI-tailored technical assessments, candidate evaluations, and integrity tracking",
   insights: "Workforce analytics and data quality",
@@ -67,7 +69,7 @@ function Frame({ children }: { children: React.ReactNode }) {
       />
 
       <main className={`p-4 sm:p-6 ${activeSection === "recruitment" ? "max-w-[1920px] px-3 sm:px-6" : "max-w-7xl"} mx-auto w-full flex-1 min-w-0`}>
-        {!["records", "add-employee", "recruitment", "ai-tests", "joiner-checks"].includes(activeSection) && (
+        {!["records", "add-employee", "recruitment", "ai-tests", "joiner-checks", "behaviour-tracker"].includes(activeSection) && (
           <div className="sticky top-16 z-20 bg-canvas -mx-4 sm:-mx-8 px-4 sm:px-8 pt-1 pb-3 mb-3">
             <GlobalFilters
               filters={d.filters}

@@ -159,22 +159,45 @@ function parseDepartments(rows: unknown[][]): DepartmentMeta[] {
 
 async function loadSnapshot(force = false): Promise<Snapshot> {
   if (!force && snapshotCache && snapshotCache.expiresAt > Date.now()) return snapshotCache.value;
-  const [metadata, values] = await Promise.all([getSpreadsheetMetadata(), batchGetValues([...RANGES])]);
-  const employeeData = parseEmployees(values[0]);
-  const statuses = parseStatuses(values[3]);
-  const statusMap = new Map(statuses.map((status) => [status.employeeKey, status]));
-  const employees = employeeData.employees.map((employee) => ({
-    ...employee,
-    statusRecord: statusMap.get(employee.employeeKey) || null,
-    employmentStatus: statusMap.get(employee.employeeKey)?.employmentStatus || "Active",
-  }));
-  const value: Snapshot = {
-    employees, meetings: parseMeetings(values[1]), documents: parseDocuments(values[2]), statuses,
-    departments: parseDepartments(values[4]), sourceTitle: metadata.properties?.title || "HR OS Database - Development",
-    shiftedRows: employeeData.shiftedRows,
-  };
-  snapshotCache = { expiresAt: Date.now() + 20_000, value };
-  return value;
+  try {
+    const [metadata, values] = await Promise.all([getSpreadsheetMetadata(), batchGetValues([...RANGES])]);
+    const employeeData = parseEmployees(values[0]);
+    const statuses = parseStatuses(values[3]);
+    const statusMap = new Map(statuses.map((status) => [status.employeeKey, status]));
+    const employees = employeeData.employees.map((employee) => ({
+      ...employee,
+      statusRecord: statusMap.get(employee.employeeKey) || null,
+      employmentStatus: statusMap.get(employee.employeeKey)?.employmentStatus || "Active",
+    }));
+    const value: Snapshot = {
+      employees, meetings: parseMeetings(values[1]), documents: parseDocuments(values[2]), statuses,
+      departments: parseDepartments(values[4]), sourceTitle: metadata.properties?.title || "HR OS Database - Development",
+      shiftedRows: employeeData.shiftedRows,
+    };
+    snapshotCache = { expiresAt: Date.now() + 20_000, value };
+    return value;
+  } catch (err: any) {
+    console.warn("Google Sheets connection not configured or unreachable; falling back to local seed data:", err?.message || err);
+    const { INITIAL_EMPLOYEES, INITIAL_MEETINGS, INITIAL_DOCUMENTS, INITIAL_STATUSES } = await import("./seed-data");
+    const { CANONICAL_DEPARTMENTS } = await import("./constants");
+    const departments: DepartmentMeta[] = CANONICAL_DEPARTMENTS.map((name, i) => ({
+      departmentId: `DEPT-${String(i + 1).padStart(3, "0")}`,
+      departmentName: name,
+      active: true,
+      displayOrder: i + 1,
+    }));
+    const value: Snapshot = {
+      employees: INITIAL_EMPLOYEES,
+      meetings: INITIAL_MEETINGS,
+      documents: INITIAL_DOCUMENTS,
+      statuses: INITIAL_STATUSES,
+      departments,
+      sourceTitle: "HR OS Database (Local Development)",
+      shiftedRows: 0,
+    };
+    snapshotCache = { expiresAt: Date.now() + 60_000, value };
+    return value;
+  }
 }
 
 function invalidateCache() { snapshotCache = null; }
