@@ -3,7 +3,7 @@ import path from "node:path";
 import os from "node:os";
 
 import { getHazriEmployees, getHazriLateSummary } from "./hazri-api";
-import { evaluateAndSaveBranch, getBranchesStore } from "./behaviour-store";
+import { evaluateAndSaveBranch, getBranchesStore, sendMonthlyWhatsAppStore } from "./behaviour-store";
 
 // 24-Hour (1 Day) Cooldown between automated background syncs to prevent draining Vercel CPU limits & Hazri Box server
 export const SYNC_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 hours / 1 day
@@ -51,7 +51,7 @@ export function shouldAutoSyncMonth(monthKey: string): boolean {
 export async function syncHazriAttendanceForMonth(
   year: number,
   month: number,
-  options: { force?: boolean } = {}
+  options: { force?: boolean; autoDispatchWhatsApp?: boolean } = {}
 ) {
   const monthStr = String(month).padStart(2, "0");
   const monthKey = `${year}-${monthStr}`;
@@ -165,12 +165,32 @@ export async function syncHazriAttendanceForMonth(
       meta[monthKey] = Date.now();
       saveSyncMeta(meta);
 
+      // Automated WhatsApp reports dispatch with 1.2-second safety delay for WAHA
+      let whatsappDispatched = 0;
+      if (options.autoDispatchWhatsApp !== false) {
+        const branchesToSend = getBranchesStore({ month: monthKey }).filter(
+          (b) => !b.whatsappSentAt && b.phone && (b.color === "grey" || b.color === "red")
+        );
+
+        for (const branch of branchesToSend) {
+          try {
+            await sendMonthlyWhatsAppStore(branch.id);
+            whatsappDispatched++;
+          } catch (err: any) {
+            console.warn(`Auto-WhatsApp error for ${branch.employeeName}:`, err?.message);
+          }
+          // 1.2-second safety interval between messages to protect WAHA from rate-limits
+          await new Promise((resolve) => setTimeout(resolve, 1200));
+        }
+      }
+
       return {
         year,
         month,
         monthKey,
         totalEmployees: results.length,
         branchesEvaluated: createdOrUpdatedBranches,
+        whatsappDispatched,
         lateSummary: results,
       };
     } finally {
@@ -180,4 +200,33 @@ export async function syncHazriAttendanceForMonth(
 
   inFlightSyncs.set(monthKey, syncPromise);
   return syncPromise;
+}
+
+/**
+ * Sequentially dispatches monthly WhatsApp messages to all un-sent employees for a month,
+ * strictly pausing 1.2 seconds between messages for WAHA safety.
+ */
+export async function batchDispatchMonthlyWhatsApp(
+  monthKey: string
+): Promise<{ total: number; sent: number; failed: number }> {
+  const branchesToSend = getBranchesStore({ month: monthKey }).filter(
+    (b) => !b.whatsappSentAt && b.phone && (b.color === "grey" || b.color === "red")
+  );
+
+  let sent = 0;
+  let failed = 0;
+
+  for (const branch of branchesToSend) {
+    try {
+      await sendMonthlyWhatsAppStore(branch.id);
+      sent++;
+    } catch (err: any) {
+      console.warn(`Batch WhatsApp failed for ${branch.employeeName}:`, err?.message);
+      failed++;
+    }
+    // 1.2-second safety delay for WAHA to avoid WhatsApp rate limits
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+  }
+
+  return { total: branchesToSend.length, sent, failed };
 }

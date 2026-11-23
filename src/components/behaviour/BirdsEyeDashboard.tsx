@@ -61,6 +61,7 @@ export function BirdsEyeDashboard() {
   // Hazri Box sync state
   const [syncingHazri, setSyncingHazri] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  const [batchSending, setBatchSending] = useState(false);
 
   // Modals state
   const [activeDossierBranch, setActiveDossierBranch] = useState<EmployeeBranch | null>(null);
@@ -69,6 +70,13 @@ export function BirdsEyeDashboard() {
 
   const [activeWhatsAppBranch, setActiveWhatsAppBranch] = useState<EmployeeBranch | null>(null);
   const [sendingWhatsApp, setSendingWhatsApp] = useState(false);
+
+  // Count un-sent WhatsApp branches for the current view
+  const pendingWhatsAppCount = React.useMemo(() => {
+    if (!summary) return 0;
+    const all = [...summary.branches.grey, ...summary.branches.red];
+    return all.filter((b) => !b.whatsappSentAt && b.phone).length;
+  }, [summary]);
 
   // Fetch Bird's Eye Data
   const loadSummary = async (month: string) => {
@@ -126,6 +134,40 @@ export function BirdsEyeDashboard() {
     } finally {
       setSyncingHazri(false);
       setTimeout(() => setSyncMessage(null), 5000);
+    }
+  };
+
+  // Batch Auto-Dispatch WhatsApp reports with 1.2s delay for WAHA safety
+  const handleBatchDispatchWhatsApp = async () => {
+    if (pendingWhatsAppCount === 0) return;
+    if (
+      !confirm(
+        `Are you sure you want to dispatch monthly WhatsApp reports to all ${pendingWhatsAppCount} employees? Each message will pause 1.2s to safeguard WAHA and WhatsApp limits.`
+      )
+    ) {
+      return;
+    }
+
+    setBatchSending(true);
+    setSyncMessage(`Dispatching ${pendingWhatsAppCount} reports with 1.2s safety interval...`);
+    try {
+      const res = await fetch("/api/behaviour/whatsapp-batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ month: selectedMonth }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSyncMessage(`✅ Dispatched ${data.sent} WhatsApp reports successfully.`);
+        await loadSummary(selectedMonth);
+      } else {
+        setSyncMessage(`Dispatch error: ${data.error}`);
+      }
+    } catch (e: any) {
+      setSyncMessage(`Dispatch failed: ${e.message}`);
+    } finally {
+      setBatchSending(false);
+      setTimeout(() => setSyncMessage(null), 6000);
     }
   };
 
@@ -245,6 +287,23 @@ export function BirdsEyeDashboard() {
               <RefreshCw className={`w-3.5 h-3.5 ${syncingHazri ? "animate-spin" : ""}`} />
               <span>{syncingHazri ? "Syncing..." : "Sync Hazri Box"}</span>
             </button>
+
+            {/* Auto-Dispatch WhatsApp Batch Button */}
+            {pendingWhatsAppCount > 0 && (
+              <button
+                onClick={handleBatchDispatchWhatsApp}
+                disabled={batchSending}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition shadow-xs disabled:opacity-50 cursor-pointer"
+                title="Send monthly punctuality reports to all pending employees with 1.2s delay"
+              >
+                <MessageCircle className={`w-3.5 h-3.5 ${batchSending ? "animate-spin" : ""}`} />
+                <span>
+                  {batchSending
+                    ? "Sending..."
+                    : `Send WhatsApps (${pendingWhatsAppCount} pending)`}
+                </span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -602,59 +661,170 @@ export function BirdsEyeDashboard() {
         </div>
       )}
 
-      {/* Modal 1: HR Dossier & Discussion Notes Modal */}
+      {/* Modal 1: Complete HR Dossier & Discussion Notes Modal */}
       {activeDossierBranch && (
-        <div className="fixed inset-0 z-50 overflow-hidden flex items-center justify-center p-4 bg-navy-950/60 backdrop-blur-xs">
-          <div className="bg-surface rounded-2xl border border-borderline shadow-xl max-w-lg w-full p-6 space-y-4 animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-between border-b border-borderline pb-3">
-              <div className="flex items-center gap-2">
-                <FileText className="w-5 h-5 text-indigo-600" />
-                <h3 className="text-base font-bold text-navy-950">
-                  HR Dossier: {activeDossierBranch.employeeName}
-                </h3>
+        <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-navy-950/60 backdrop-blur-xs">
+          <div className="bg-surface rounded-2xl border border-borderline shadow-xl max-w-2xl w-full p-6 space-y-4 my-8 animate-in fade-in zoom-in-95 max-h-[90vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-borderline pb-3 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <span className="p-2 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-700">
+                  <FileText className="w-5 h-5" />
+                </span>
+                <div>
+                  <h3 className="text-base font-bold text-navy-950 tracking-tight">
+                    HR Behaviour Dossier: {activeDossierBranch.employeeName}
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    {activeDossierBranch.employeeId} · {activeDossierBranch.department} · {activeDossierBranch.company}
+                  </p>
+                </div>
               </div>
               <button
                 onClick={() => setActiveDossierBranch(null)}
-                className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100"
+                className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="space-y-3 text-xs">
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
-                <div className="font-bold text-slate-900">Branch Status:</div>
-                <div className="text-slate-700">
-                  {activeDossierBranch.color.toUpperCase()} (
-                  {activeDossierBranch.status.toUpperCase()}) — {activeDossierBranch.month}
+            {/* Scrollable Dossier Content */}
+            <div className="space-y-4 text-xs overflow-y-auto pr-1">
+              {/* Branch State & Phone Card */}
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Observation State</span>
+                  <div className="font-bold text-sm text-slate-900 mt-0.5 flex items-center gap-1.5">
+                    <span className={`w-2.5 h-2.5 rounded-full ${
+                      activeDossierBranch.color === "red"
+                        ? "bg-rose-500"
+                        : activeDossierBranch.color === "green"
+                        ? "bg-emerald-500"
+                        : "bg-slate-500"
+                    }`} />
+                    <span>{activeDossierBranch.color.toUpperCase()} ({activeDossierBranch.status.toUpperCase()}) — {activeDossierBranch.month}</span>
+                  </div>
                 </div>
+                {activeDossierBranch.phone && (
+                  <div className="text-right">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">WhatsApp Number</span>
+                    <span className="text-xs font-semibold text-slate-700 font-mono">+{activeDossierBranch.phone}</span>
+                  </div>
+                )}
               </div>
 
+              {/* Identified Infractions & Exact Punch Dates */}
+              <div className="space-y-2">
+                <div className="font-bold text-slate-900 flex items-center gap-1.5 text-xs">
+                  <AlertTriangle className="w-4 h-4 text-amber-500" />
+                  <span>Identified Attendance & Behaviour Infractions</span>
+                </div>
+
+                {activeDossierBranch.signals.length === 0 ? (
+                  <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 font-medium flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span>No active infractions found. Employee met all punctuality standards this month.</span>
+                  </div>
+                ) : (
+                  activeDossierBranch.signals.map((sig, idx) => (
+                    <div key={idx} className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-slate-900 text-xs flex items-center gap-1">
+                          {sig.type === "late_marks" && "⏰ "}
+                          {sig.type === "mon_fri_leave" && "🏖️ "}
+                          {sig.type === "week_off_extension_leave" && "📆 "}
+                          {sig.type === "holiday_bridge_leave" && "🗓️ "}
+                          {sig.type === "hr_conduct_issue" && "🚩 "}
+                          {sig.title}
+                        </span>
+                        <span className="text-[10px] px-2 py-0.5 font-bold rounded-full bg-slate-200 text-slate-800">
+                          {sig.occurrences}x Occurrences
+                        </span>
+                      </div>
+                      <p className="text-slate-600 text-xs leading-relaxed">{sig.description}</p>
+
+                      {/* Exact Punch / Leave Dates Grid */}
+                      {sig.dates && sig.dates.length > 0 && (
+                        <div className="pt-2 border-t border-slate-200/60">
+                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">
+                            Exact Punch Dates Logged in Hazri Box ({sig.dates.length}):
+                          </span>
+                          <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto pr-1">
+                            {sig.dates.map((dateStr, dIdx) => (
+                              <span
+                                key={dIdx}
+                                className="px-2 py-0.5 rounded-md bg-white border border-slate-200 text-slate-800 font-mono text-[11px] shadow-2xs font-medium"
+                              >
+                                {dateStr}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Recommended HR 1-on-1 Discussion Guide */}
+              <div className="p-3.5 rounded-xl bg-indigo-50/70 border border-indigo-200 space-y-2">
+                <div className="font-bold text-indigo-950 flex items-center gap-1.5 text-xs">
+                  <UserCheck className="w-4 h-4 text-indigo-600" />
+                  <span>Recommended Discussion Guide for HR 1-on-1 Check-in</span>
+                </div>
+                <ul className="space-y-1.5 text-indigo-900 text-[11px] leading-relaxed list-disc list-inside">
+                  <li>
+                    <strong>Root Cause Analysis:</strong> Inquire into transit delays, morning shift commute constraints, or personal scheduling obstacles.
+                  </li>
+                  <li>
+                    <strong>Policy Clarification:</strong> Confirm employee understands the 6-late marks rule (Hazri Box allowance of 5 forgiven; 6th triggers HR watch).
+                  </li>
+                  <li>
+                    <strong>Target Agreement:</strong> Establish clear commitment to &le; 2 late marks and 0 unapproved leaves next month so the branch transitions to Green.
+                  </li>
+                </ul>
+              </div>
+
+              {/* Logged Notes (if already saved) */}
+              {activeDossierBranch.hrTalkNotes && (
+                <div className="p-3 rounded-xl bg-slate-100 border border-slate-300 space-y-1">
+                  <div className="font-bold text-slate-800 text-[11px] flex items-center justify-between">
+                    <span>Previous HR Conversation Note:</span>
+                    {activeDossierBranch.hrTalkDate && (
+                      <span className="text-slate-500 font-normal">{activeDossierBranch.hrTalkDate}</span>
+                    )}
+                  </div>
+                  <p className="text-slate-700 italic text-xs">&ldquo;{activeDossierBranch.hrTalkNotes}&rdquo;</p>
+                </div>
+              )}
+
+              {/* HR Notes Textarea */}
               <div>
-                <label className="block font-bold text-slate-800 mb-1">
-                  HR 1-on-1 Conversation Notes:
+                <label className="block font-bold text-slate-800 mb-1 text-xs">
+                  {activeDossierBranch.hrTalkNotes ? "Update HR Conversation Notes:" : "Record HR 1-on-1 Conversation Notes:"}
                 </label>
                 <textarea
-                  rows={4}
+                  rows={3}
                   value={hrNotes}
                   onChange={(e) => setHrNotes(e.target.value)}
-                  placeholder="Record what was discussed with the employee, reasons for late punches, and agreed commitments..."
+                  placeholder="Record summary of talk: reasons given by employee, shift adjustments, commitments made..."
                   className="w-full p-3 rounded-xl border border-borderline bg-surface text-xs text-navy-DEFAULT focus:outline-none focus:border-indigo-500"
                 />
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-2 border-t border-borderline">
+            {/* Modal Actions */}
+            <div className="flex justify-end gap-2 pt-3 border-t border-borderline shrink-0">
               <button
                 onClick={() => setActiveDossierBranch(null)}
-                className="px-3.5 py-1.5 rounded-xl border border-borderline text-xs font-bold text-slate-600 hover:bg-slate-100"
+                className="px-4 py-1.5 rounded-xl border border-borderline text-xs font-bold text-slate-600 hover:bg-slate-100 cursor-pointer"
               >
-                Cancel
+                Close
               </button>
               <button
                 onClick={handleSaveHrTalk}
                 disabled={submittingHrTalk || !hrNotes.trim()}
-                className="px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition disabled:opacity-50"
+                className="px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition disabled:opacity-50 cursor-pointer shadow-xs"
               >
                 {submittingHrTalk ? "Saving..." : "Save & Complete HR Talk"}
               </button>
