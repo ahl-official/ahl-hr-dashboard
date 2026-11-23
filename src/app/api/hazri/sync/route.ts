@@ -43,7 +43,8 @@ export async function POST(req: Request) {
     const year = Number(body.year) || now.getFullYear();
     const month = Number(body.month) || now.getMonth() + 1;
 
-    const result = await syncHazriAttendanceForMonth(year, month);
+    // Manual sync always forces fresh pull from Hazri Box (bypassing cooldown)
+    const result = await syncHazriAttendanceForMonth(year, month, { force: true });
 
     return NextResponse.json({
       success: true,

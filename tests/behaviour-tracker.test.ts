@@ -15,10 +15,12 @@ import {
   recordHrTalkStore,
   getBirdsEyeViewStore,
   getBranchByIdStore,
+  resetBranchesStoreForTesting,
 } from "../src/lib/behaviour-store.ts";
 import type { BehaviourEvaluationInput } from "../src/types/behaviour-tracker.ts";
 
 describe("Task 3: Employee Behaviour-Pattern Tracking Engine", () => {
+  resetBranchesStoreForTesting();
   it("Late marks threshold is strictly set to 6 (matching Hazri Box allowance of 5)", () => {
     assert.equal(LATE_MARKS_THRESHOLD, 6);
 

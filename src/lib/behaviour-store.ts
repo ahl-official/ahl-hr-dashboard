@@ -69,6 +69,18 @@ function ensureStoreLoaded() {
 }
 
 /**
+ * Reset branches store (used in test suite to start with a pristine state).
+ */
+export function resetBranchesStoreForTesting() {
+  branchesStore = [];
+  try {
+    if (fs.existsSync(CACHE_FILE)) {
+      fs.unlinkSync(CACHE_FILE);
+    }
+  } catch {}
+}
+
+/**
  * List all branches with optional filtering.
  */
 export function getBranchesStore(filters?: {
