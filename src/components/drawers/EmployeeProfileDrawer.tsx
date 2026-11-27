@@ -69,8 +69,13 @@ export function EmployeeProfileDrawer({
       .catch(() => setDiscInfo(null))
       .finally(() => setLoadingDisc(false));
 
-    // Fetch active behaviour branch
-    fetch(`/api/behaviour/branches?employeeKey=${encodeURIComponent(employee.employeeKey)}`)
+    // Fetch active behaviour branch (by key, name, or phone)
+    const query = new URLSearchParams({
+      employeeKey: employee.employeeKey,
+      name: employee.fullName,
+      phone: employee.mobile || "",
+    });
+    fetch(`/api/behaviour/branches?${query.toString()}`)
       .then((r) => r.json())
       .then((d) => {
         if (d.success && d.branches && d.branches.length > 0) {

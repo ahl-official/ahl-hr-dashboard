@@ -88,6 +88,8 @@ export function getBranchesStore(filters?: {
   color?: string;
   status?: string;
   employeeKey?: string;
+  employeeName?: string;
+  phone?: string;
 }): EmployeeBranch[] {
   ensureStoreLoaded();
   let list = [...branchesStore];
@@ -100,8 +102,17 @@ export function getBranchesStore(filters?: {
   if (filters?.status) {
     list = list.filter((b) => b.status === filters.status);
   }
-  if (filters?.employeeKey) {
-    list = list.filter((b) => b.employeeKey === filters.employeeKey);
+  if (filters?.employeeKey || filters?.employeeName || filters?.phone) {
+    const key = filters.employeeKey;
+    const name = filters.employeeName?.toLowerCase().trim();
+    const phone = filters.phone?.replace(/\D/g, "").slice(-10);
+
+    list = list.filter((b) => {
+      if (key && b.employeeKey === key) return true;
+      if (name && b.employeeName.toLowerCase().trim() === name) return true;
+      if (phone && b.phone && b.phone.replace(/\D/g, "").slice(-10) === phone) return true;
+      return false;
+    });
   }
   return list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }

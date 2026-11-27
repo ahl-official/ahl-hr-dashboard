@@ -658,7 +658,9 @@ export function BirdsEyeDashboard() {
                         ? "bg-emerald-500"
                         : "bg-slate-500"
                     }`} />
-                    <span>{activeDossierBranch.color.toUpperCase()} ({activeDossierBranch.status.toUpperCase()}) — {activeDossierBranch.month}</span>
+                    <span>
+                      {(activeDossierBranch.color || "grey").toUpperCase()} ({(activeDossierBranch.status || "watching").toUpperCase()}) — {activeDossierBranch.month || selectedMonth}
+                    </span>
                   </div>
                 </div>
                 {activeDossierBranch.phone && (
@@ -676,13 +678,13 @@ export function BirdsEyeDashboard() {
                   <span>Identified Attendance & Behaviour Infractions</span>
                 </div>
 
-                {activeDossierBranch.signals.length === 0 ? (
+                {(!activeDossierBranch.signals || activeDossierBranch.signals.length === 0) ? (
                   <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 font-medium flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                     <span>No active infractions found. Employee met all punctuality standards this month.</span>
                   </div>
                 ) : (
-                  activeDossierBranch.signals.map((sig, idx) => (
+                  (activeDossierBranch.signals || []).map((sig, idx) => (
                     <div key={idx} className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="font-bold text-slate-900 text-xs flex items-center gap-1">
@@ -700,7 +702,7 @@ export function BirdsEyeDashboard() {
                       <p className="text-slate-600 text-xs leading-relaxed">{sig.description}</p>
 
                       {/* Exact Punch / Leave Dates Grid */}
-                      {sig.dates && sig.dates.length > 0 && (
+                      {Array.isArray(sig.dates) && sig.dates.length > 0 && (
                         <div className="pt-2 border-t border-slate-200/60">
                           <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">
                             Exact Punch Dates Logged in Hazri Box ({sig.dates.length}):

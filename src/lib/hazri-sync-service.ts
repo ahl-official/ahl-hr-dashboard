@@ -2,7 +2,12 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 
-import { getHazriEmployees, getHazriLateSummary } from "./hazri-api";
+import {
+  getHazriEmployees,
+  getHazriLateSummary,
+  getHazriMonthAttendance,
+  getHazriHolidays,
+} from "./hazri-api";
 import { evaluateAndSaveBranch, getBranchesStore, sendMonthlyWhatsAppStore } from "./behaviour-store";
 
 // 24-Hour (1 Day) Cooldown between automated background syncs to prevent draining Vercel CPU limits & Hazri Box server
@@ -132,13 +137,58 @@ export async function syncHazriAttendanceForMonth(
       const previousBranches = getBranchesStore({ month: previousMonthKey });
       const prevBranchEmployeeKeys = new Set(previousBranches.map((b) => b.employeeKey));
 
+      // Fetch official holidays from Hazri Box
+      const holidays = await getHazriHolidays().catch(() => []);
+      const holidayDates = (holidays || []).map((h) => h.date);
+      const holidaySet = new Set(holidayDates);
+
+      const now = new Date();
+      const isCurrentMonth = year === now.getFullYear() && month === now.getMonth() + 1;
+      const maxDay = isCurrentMonth ? Math.min(now.getDate(), 31) : new Date(year, month, 0).getDate();
+
       let createdOrUpdatedBranches = 0;
 
       for (const res of results) {
         const empKey = `EMP-HAZRI-${res.id}`;
         const hasPriorBranch = prevBranchEmployeeKeys.has(empKey);
 
-        if (res.lateCount >= 6 || hasPriorBranch) {
+        // Fetch monthly punches to identify unapproved leave patterns (week-off extensions & holiday bridges)
+        let leaveRecords: { from: string; till: string; days: number; type: string }[] = [];
+        if (res.lateCount >= 4 || hasPriorBranch) {
+          try {
+            const punches = await getHazriMonthAttendance(res.id, year, month);
+            if (Array.isArray(punches)) {
+              const punchedDays = new Set(punches.map((p) => p.timestamp.slice(0, 10)));
+              const isSalon =
+                (res.department || "").toLowerCase().includes("salon") ||
+                (res.branch || "").toLowerCase().includes("salon");
+              const scheduledWeekOff = isSalon ? 1 : 0; // 1 = Monday for Salon, 0 = Sunday for Office
+
+              const absentDays: string[] = [];
+              for (let d = 1; d <= maxDay; d++) {
+                const dStr = `${year}-${String(month).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+                const dayOfWeek = new Date(`${dStr}T12:00:00Z`).getUTCDay();
+                if (dayOfWeek === scheduledWeekOff || holidaySet.has(dStr)) continue;
+                if (!punchedDays.has(dStr)) {
+                  absentDays.push(dStr);
+                }
+              }
+
+              if (absentDays.length > 0) {
+                leaveRecords = absentDays.map((date) => ({
+                  from: date,
+                  till: date,
+                  days: 1,
+                  type: "Absence / Unapproved Leave",
+                }));
+              }
+            }
+          } catch (err: any) {
+            console.warn(`Could not compute leaves for ${res.name}:`, err?.message);
+          }
+        }
+
+        if (res.lateCount >= 6 || leaveRecords.length >= 2 || hasPriorBranch) {
           evaluateAndSaveBranch({
             employeeKey: empKey,
             employeeId: `AHL-HZ-${String(res.id).padStart(4, "0")}`,
@@ -152,8 +202,8 @@ export async function syncHazriAttendanceForMonth(
             workingDays: res.working_days
               ? res.working_days.split(",").map((s) => s.trim())
               : undefined,
-            leaveRecords: [],
-            holidayDates: [],
+            leaveRecords,
+            holidayDates,
             hrWarnings: [],
           });
           createdOrUpdatedBranches++;

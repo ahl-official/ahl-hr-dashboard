@@ -10,8 +10,10 @@ export async function GET(req: Request) {
     const color = searchParams.get("color") || undefined;
     const status = searchParams.get("status") || undefined;
     const employeeKey = searchParams.get("employeeKey") || undefined;
+    const employeeName = searchParams.get("name") || searchParams.get("employeeName") || undefined;
+    const phone = searchParams.get("phone") || undefined;
 
-    const branches = getBranchesStore({ month, color, status, employeeKey });
+    const branches = getBranchesStore({ month, color, status, employeeKey, employeeName, phone });
     return NextResponse.json({ success: true, branches });
   } catch (error: any) {
     return NextResponse.json(
