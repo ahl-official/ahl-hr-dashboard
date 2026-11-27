@@ -1,7 +1,6 @@
 // Service Worker for AHL HR Command Center PWA
-const CACHE_NAME = "ahl-hr-cache-v1";
+const CACHE_NAME = "ahl-hr-cache-v2";
 const STATIC_ASSETS = [
-  "/",
   "/manifest.json",
   "/icons/icon.svg",
 ];
@@ -21,6 +20,7 @@ self.addEventListener("activate", (event) => {
       return Promise.all(
         keys.map((key) => {
           if (key !== CACHE_NAME) {
+            console.log("Deleting old service worker cache:", key);
             return caches.delete(key);
           }
         })
@@ -54,10 +54,10 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // For static assets and pages, stale-while-revalidate strategy
-  event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      const fetchPromise = fetch(event.request)
+  // For HTML page navigation, ALWAYS use Network-First so UI updates immediately
+  if (event.request.mode === "navigate") {
+    event.respondWith(
+      fetch(event.request)
         .then((networkResponse) => {
           if (networkResponse && networkResponse.status === 200) {
             const responseClone = networkResponse.clone();
@@ -68,11 +68,26 @@ self.addEventListener("fetch", (event) => {
           return networkResponse;
         })
         .catch(() => {
-          // Offline fallback
-          return cachedResponse;
-        });
+          // Fallback to cached page only if offline
+          return caches.match(event.request).then((cached) => cached || caches.match("/"));
+        })
+    );
+    return;
+  }
 
-      return cachedResponse || fetchPromise;
+  // For static assets (images, fonts, chunks), cache-first with network fallback
+  event.respondWith(
+    caches.match(event.request).then((cachedResponse) => {
+      if (cachedResponse) return cachedResponse;
+      return fetch(event.request).then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200) {
+          const responseClone = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseClone);
+          });
+        }
+        return networkResponse;
+      });
     })
   );
 });

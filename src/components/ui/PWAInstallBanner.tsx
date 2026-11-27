@@ -14,7 +14,11 @@ export function PWAInstallBanner() {
     if ("serviceWorker" in navigator && process.env.NODE_ENV === "production") {
       navigator.serviceWorker
         .register("/sw.js")
-        .then((reg) => console.log("Service Worker registered:", reg.scope))
+        .then((reg) => {
+          console.log("Service Worker registered:", reg.scope);
+          // Check for any service worker updates immediately
+          reg.update();
+        })
         .catch((err) => console.warn("Service Worker registration failed:", err));
     }
 
