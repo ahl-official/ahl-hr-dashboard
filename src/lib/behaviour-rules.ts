@@ -146,8 +146,9 @@ export function detectBehaviourSignals(input: BehaviourEvaluationInput): Behavio
   );
   const weekOffDayName = DAY_NAMES[scheduledWeekOff];
   const weekOffExtensionDates: string[] = [];
-  const monFriLeaveDates: string[] = [];
+  const separateLeaveDates: string[] = [];
   const holidayBridgeDates: string[] = [];
+  const allLeaveDates: string[] = [];
 
   input.leaveRecords.forEach((lr) => {
     // Generate dates between from and till
@@ -157,20 +158,7 @@ export function detectBehaviourSignals(input: BehaviourEvaluationInput): Behavio
 
     while (cur <= end) {
       const dStr = cur.toISOString().slice(0, 10);
-      const day = cur.getUTCDay();
-
-      // Check Week-Off Bridge (day before or day after scheduled day off)
-      const adjOff = isAdjacentToWeekOff(dStr, scheduledWeekOff);
-      if (adjOff.isAdjacent) {
-        weekOffExtensionDates.push(
-          `${dStr} (${adjOff.leaveDayName}, day ${adjOff.relation} ${adjOff.weekOffDayName} off)`
-        );
-      }
-
-      // Monday (1) or Friday (5) for traditional 5-day / Sunday-off tracking
-      if (day === 1 || day === 5) {
-        monFriLeaveDates.push(`${dStr} (${day === 1 ? "Monday" : "Friday"})`);
-      }
+      allLeaveDates.push(dStr);
 
       // Check Holiday Bridge
       const bridge = isAdjacentToHoliday(dStr, input.holidayDates);
@@ -178,27 +166,55 @@ export function detectBehaviourSignals(input: BehaviourEvaluationInput): Behavio
         holidayBridgeDates.push(`${dStr} (Adjacent to holiday ${bridge.holidayDate})`);
       }
 
+      // Check Week-Off Bridge (day before or day after scheduled day off)
+      const adjOff = isAdjacentToWeekOff(dStr, scheduledWeekOff);
+      if (adjOff.isAdjacent) {
+        weekOffExtensionDates.push(
+          `${dStr} (${adjOff.leaveDayName}, day ${adjOff.relation} ${adjOff.weekOffDayName} off)`
+        );
+      } else if (!bridge.isBridge) {
+        const dayName = DAY_NAMES[cur.getUTCDay()];
+        separateLeaveDates.push(`${dStr} (${dayName})`);
+      }
+
       cur.setUTCDate(cur.getUTCDate() + 1);
     }
   });
 
-  if (weekOffExtensionDates.length >= 2) {
+  const totalLeavesCount = allLeaveDates.length;
+
+  if (weekOffExtensionDates.length > 0) {
+    const isMultiAdjacent = weekOffExtensionDates.length >= 2;
+    const title = isMultiAdjacent
+      ? `Week-Off Extension Leaves (${weekOffDayName} Off)`
+      : `Leave Adjacent to Week-Off (${weekOffDayName} Off)`;
+
+    let description = "";
+    if (separateLeaveDates.length > 0) {
+      description = `Took ${weekOffExtensionDates.length} leave adjacent to scheduled ${weekOffDayName} off (${weekOffExtensionDates.join(", ")}) and ${separateLeaveDates.length} separate leave (${separateLeaveDates.join(", ")}). Total: ${totalLeavesCount} leaves.`;
+    } else {
+      description = `Took ${weekOffExtensionDates.length} leave(s) directly adjacent to scheduled ${weekOffDayName} off. Total: ${totalLeavesCount} leaves.`;
+    }
+
     signals.push({
       type: "week_off_extension_leave",
-      title: `Week-Off Extension Leaves (${weekOffDayName} Off)`,
-      description: `Took ${weekOffExtensionDates.length} leaves directly adjacent to scheduled ${weekOffDayName} week-off in a 6-day work week.`,
-      severity: weekOffExtensionDates.length >= 3 ? "high" : "medium",
+      title,
+      description,
+      severity: isMultiAdjacent ? "high" : "medium",
       occurrences: weekOffExtensionDates.length,
-      dates: weekOffExtensionDates,
+      dates: [
+        ...weekOffExtensionDates.map((d) => `${d} [Adjacent to ${weekOffDayName} Off]`),
+        ...separateLeaveDates.map((d) => `${d} [Separate Leave]`),
+      ],
     });
-  } else if (monFriLeaveDates.length >= 2) {
+  } else if (separateLeaveDates.length >= 2) {
     signals.push({
       type: "mon_fri_leave",
-      title: "Weekend Extension Leaves (Mon/Fri)",
-      description: `Took ${monFriLeaveDates.length} leaves falling on Mondays or Fridays.`,
-      severity: monFriLeaveDates.length >= 3 ? "high" : "medium",
-      occurrences: monFriLeaveDates.length,
-      dates: monFriLeaveDates,
+      title: "Standalone Weekday Leaves",
+      description: `Took ${separateLeaveDates.length} separate weekday leaves (${separateLeaveDates.join(", ")}). Total: ${totalLeavesCount} leaves.`,
+      severity: separateLeaveDates.length >= 3 ? "high" : "medium",
+      occurrences: separateLeaveDates.length,
+      dates: separateLeaveDates,
     });
   }
 

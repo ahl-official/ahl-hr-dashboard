@@ -140,6 +140,37 @@ describe("Task 3: Employee Behaviour-Pattern Tracking Engine", () => {
     assert.ok(signals[0].title.includes("Monday Off"));
   });
 
+  it("Accurately breaks down 1 leave adjacent to week-off and 1 separate leave (total 2 leaves)", () => {
+    // Back office employee (Sunday off) takes Saturday (adjacent) and Friday (separate)
+    const backOfficeInput: BehaviourEvaluationInput = {
+      employeeKey: "EMP-TEST-ADJ-SEP",
+      employeeId: "AHL-BO-0050",
+      employeeName: "Rohan Patil",
+      department: "Back Office",
+      company: "American Hairline",
+      phone: "919876543299",
+      month: "2026-11",
+      lateDaysCount: 2,
+      lateDays: ["2026-11-04", "2026-11-12"],
+      scheduledWeekOff: "Sunday", // 0
+      leaveRecords: [
+        { type: "Casual Leave", from: "2026-11-20", till: "2026-11-20", days: 1 }, // Friday (separate)
+        { type: "Casual Leave", from: "2026-11-21", till: "2026-11-21", days: 1 }, // Saturday (adjacent to Sunday)
+      ],
+      holidayDates: [],
+      hrWarnings: [],
+    };
+
+    const signals = detectBehaviourSignals(backOfficeInput);
+    assert.equal(signals.length, 1);
+    assert.equal(signals[0].type, "week_off_extension_leave");
+    assert.ok(signals[0].title.includes("Sunday Off"));
+    assert.equal(signals[0].occurrences, 1, "Should count exactly 1 leave adjacent to week-off");
+    assert.ok(signals[0].description.includes("1 leave adjacent to scheduled Sunday off"));
+    assert.ok(signals[0].description.includes("1 separate leave"));
+    assert.ok(signals[0].description.includes("Total: 2 leaves"));
+  });
+
   it("Done when 2: HR gets the report for that employee", () => {
     const branch = evaluateAndSaveBranch({
       employeeKey: "EMP-TEST-102",
